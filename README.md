@@ -86,6 +86,7 @@ logger:
 This logs DEBUG messages to the home-assistant.log file in your config folder.
 
 This is also helpful to find out the Remote ID of your Becker Remote. The message will be something like below every time you press a key on your Remote:
+
 2022-02-22 19:11:43 DEBUG ... \[custom_components.hass-becker-component...\] Received packet: **unit_id: 12345, channel: 2**, command: HALT, argument: 0, packet: b'\x020000000002010B0000000000123450210001001000\x03'
 
 ## Support
