@@ -32,7 +32,7 @@ cover:
     # Default device:
     # "/dev/serial/by-id/usb-BECKER-ANTRIEBE_GmbH_CDC_RS232_v125_Centronic-if00"
     device: "/dev/beckercentronicusb"
-    # Optional database filename (will store your database in HA config folder)
+    # Optional database filename (database is stored in HA config folder)
     filename: "centronic-stick.db"
     covers:
       kitchen:
@@ -88,4 +88,5 @@ logger:
 This enable DEBUG messages to the home-assistant.log file in your config folder.
 
 Also helpful to find out the Remote ID of your Becker Remote. The message will be something like below every time you press a key on your Remote:
-2022-02-22 19:11:43 DEBUG ... \[custom_components.hass-becker-component...\] Received packet: **unit_id: 12345, channel: 2**, command: HALT, argument: 0, packet: b'\x020000000002010B0000000000123450210001001000\x03'
+
+... DEBUG ... \[custom_components.hass-becker-component...\] Received packet: **unit_id: 12345, channel: 2**, command: HALT, argument: 0, packet: ...
