@@ -8,7 +8,6 @@ from xknx.devices import TravelCalculator
 from homeassistant.core import callback
 from homeassistant.exceptions import (
     TemplateError,
-    ConfigEntryAuthFailed,
 )
 
 import homeassistant.helpers.config_validation as cv

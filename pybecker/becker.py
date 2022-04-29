@@ -1,3 +1,5 @@
+# pylint: disable=missing-function-docstring
+# pylint: disable=missing-class-docstring
 import logging
 import re
 import time
@@ -95,6 +97,8 @@ class Becker:
         elif cmd == "TRAIN":
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
+            codes.append(generate_code(channel, unit, 0x00))
+            unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             # set unit as configured
             unit[2] = 1
@@ -111,12 +115,23 @@ class Becker:
         elif cmd == "REMOVE":
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
+            codes.append(generate_code(channel, unit, 0x00))
+            unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR3))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR4))
-            unit[2] = 0
+        elif cmd == "TRAINMASTER":
+            codes.append(generate_code(channel, unit, COMMAND_PAIR))
+            unit[1] += 1
+            codes.append(generate_code(channel, unit, COMMAND_PAIR2))
+            unit[1] += 1
+            codes.append(generate_code(channel, unit, COMMAND_PAIR3))
+            unit[1] += 1
+            codes.append(generate_code(channel, unit, COMMAND_PAIR4))
+            # set unit as configured
+            unit[2] = 1
 
         if mt:
             _LOGGER.INFO("Moving %s for %s seconds..." % (mt.group(1), mt.group(2)))
