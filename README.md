@@ -19,7 +19,9 @@ It support value template if you want to use sensors to set the current state of
 
 ## Installation
 
-Copy the different sources in custom_components folder of your HA configuration directory
+Add this repository to HACS custom repositories (preferred).
+
+Alternatively copy this repository into the custom_components folder of your HA configuration directory
 
 ## Configuration
 
@@ -61,7 +63,17 @@ Note: The channel and remote_id needs to be a string!
 
 ## Note
 
-To use your cover in HA you need to pair it first with the USB stick. To pair your cover run the service becker.pair. See HA Developer Tools -> Services
+To use your cover in HA you need to pair it first with the USB stick.
+
+The pairing is always between your remote and the shutter. The shutter will react on the commands of all paired remotes.
+Usually you already have programmed your original remote as the master remote. It is not recommended to program the USB stick as the master remote!
+The USB stick is like an additional remote. Therefore the pairing procedure for the USB stick is the same as with additional remotes. Please refer to you manual for more details.
+
+You have to put your shutter in pairing mode before. This is done by pressing the program button of your master remote until you hear a "clac" noise
+
+To pair your shutter run the service becker.pair once (see HA Developer Tools -> Services). The shutter will confirm the successful pair with a single "clac" noise followed by a double "clac" noise.
+
+Example data for service becker.pair:
 
 ```yaml
 service: becker.pair
@@ -70,8 +82,6 @@ data:
   channel: 1
   unit: 1
 ```
-
-Of course you have to put your shutter in pairing mode before. This is generally done by holding the programming button of your master sender until you hear a "clac" noise
 
 ## Troubleshooting
 

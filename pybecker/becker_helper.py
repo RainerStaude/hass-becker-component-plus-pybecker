@@ -228,7 +228,7 @@ class BeckerCommunicator(threading.Thread):
                 self._read_buffer += self._connection.read()
                 self._parse()
             # Sleep for thread switch and wait time between packets
-            time.sleep(0.01)
+            time.sleep(0.1)
             # Ensure all packets in queue are send before thread is stopped
             if self._stop_flag.is_set() and self._write_queue.empty():
                 break
