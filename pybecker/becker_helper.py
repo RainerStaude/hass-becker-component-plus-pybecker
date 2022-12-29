@@ -1,3 +1,4 @@
+"""Helper for Becker centronic USB Stick."""
 import logging
 import re
 import time
@@ -28,26 +29,29 @@ MESSAGE = re.compile(
     + rb'[0-9A-F]{6,6}'
     + rb'(?P<channel>[0-9A-F]{1,1})'
     + rb'00'
-    + rb'(?P<command>[124]{1,1})'            # HALT, UP, DOWN
+    + rb'(?P<command>[0-9A-F]{1,1})'
     + rb'(?P<argument>[0-9A-F]{1,1})'
     + rb'[0-9A-F]{2,2}'
     + ETX, re.I
 )
 
-COMMANDS = {b'1': 'HALT', b'2': 'UP', b'4': 'DOWN'}
+COMMANDS = {b'0': 'RELEASE', b'1': 'HALT', b'2': 'UP', b'4': 'DOWN', b'8': 'TRAIN'}
 
 _LOGGER = logging.getLogger(__name__)
 
 
 def hex2(n):
+    """Return word"""
     return '%02X' % (n & 0xFF)
 
 
 def hex4(n):
+    """Return dword"""
     return '%04X' % (n & 0xFFFF)
 
 
 def checksum(code):
+    """Calculate checksum"""
     code_length = len(code)
     if code_length != 40:
         _LOGGER.error("The code must be 40 characters long (without <STX>, <ETX> and checksum)")
@@ -62,6 +66,7 @@ def checksum(code):
 
 
 def generate_code(channel, unit, cmd_code, with_checksum=True):
+    """Generate code"""
     unit_id = unit[0]  # contains the unit code in hex (5 chars)
     unit_inc = unit[1]  # contains the next increment (required to convert into hex4)
 
@@ -75,10 +80,12 @@ def generate_code(channel, unit, cmd_code, with_checksum=True):
     return checksum(code) if with_checksum else code
 
 def finalize_code(code):
+    """Add frame"""
     return b"".join([STX, code.encode(), ETX])
 
 
 class BeckerConnectionError(Exception):
+    """Error class for Becker centronic USB Stick."""
     pass
 
 
