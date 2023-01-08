@@ -2,6 +2,7 @@
 
 import logging
 
+import time
 import voluptuous as vol
 from xknx.devices import TravelCalculator
 
@@ -55,6 +56,11 @@ from .const import (
     CONF_INTERMEDIATE_DISABLE,
     COMMANDS,
     REMOTE_ID,
+    CONF_INTERMEDIATE_ON_TILT,
+    CONF_TILT_TIME,
+    CONF_TILT_SUPPORT,
+    TILT_TIME,
+    TILT_RECEIVE_TIMEOUT,
 )
 
 from .rf_device import PyBecker
@@ -84,6 +90,9 @@ COVER_SCHEMA = vol.Schema(
         vol.Optional(CONF_INTERMEDIATE_POSITION_UP, default=VENTILATION_POSITION): cv.positive_int,
         vol.Optional(CONF_INTERMEDIATE_POSITION_DOWN, default=INTERMEDIATE_POSITION): cv.positive_int,
         vol.Optional(CONF_INTERMEDIATE_DISABLE, default=False): cv.boolean,
+        vol.Optional(CONF_INTERMEDIATE_ON_TILT, default=True): cv.boolean,
+        vol.Optional(CONF_TILT_SUPPORT, default=True): cv.boolean,
+        vol.Optional(CONF_TILT_TIME, default=TILT_TIME): cv.positive_float,
     }
 )
 
@@ -113,7 +122,13 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         travel_time_up = device_config.get(CONF_TRAVELLING_TIME_UP)
         intermediate_pos_up = device_config.get(CONF_INTERMEDIATE_POSITION_UP)
         intermediate_pos_down = device_config.get(CONF_INTERMEDIATE_POSITION_DOWN)
-        intermediate_disable = device_config.get(CONF_INTERMEDIATE_DISABLE)
+        intermediate_disable = (
+            device_config.get(CONF_INTERMEDIATE_DISABLE)
+            and not device_config.get(CONF_INTERMEDIATE_ON_TILT)
+        )
+        tilt_support = device_config.get(CONF_TILT_SUPPORT)
+        tilt_time = device_config.get(CONF_TILT_TIME)
+
         if channel is None:
             _LOGGER.error("Must specify %s", CONF_CHANNEL)
             continue
@@ -125,6 +140,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
                 PyBecker.becker, friendly_name, channel,
                 state_template, remote_id, travel_time_down, travel_time_up,
                 intermediate_pos_up, intermediate_pos_down, intermediate_disable,
+                tilt_support, tilt_time,
             )
         )
 
@@ -138,8 +154,9 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         self, becker, name, channel,
         state_template, remote_id, travel_time_down, travel_time_up,
         intermediate_pos_up, intermediate_pos_down, intermediate_disable,
+        tilt_support, tilt_time,
     ):
-        """Init the Becker device."""
+        """Init the Becker entity."""
         self._becker = becker
         self._name = name
         self._attr = dict()
@@ -151,8 +168,12 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Intermediate position settings
         self._intermediate_pos_up = intermediate_pos_up
         self._intermediate_pos_down = intermediate_pos_down
-        if not intermediate_disable:
+        self._intermediate_disable = intermediate_disable
+        # tilt settings
+        if tilt_support:
             self._cover_features |= SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT
+        self._tilt_time = tilt_time
+        self._tilt_timeout = time.time()
         # Callbacks
         self._callbacks = dict()
        # Setup TravelCalculator
@@ -283,8 +304,12 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     async def async_open_cover_tilt(self, **kwargs):
         """Open the cover tilt."""
         # Feature only available if SUPPORT_OPEN_TILT is set
-        self._travel_up_intermediate()
-        await self._becker.move_up_intermediate(self._channel)
+        if self._intermediate_disable:
+            self.async_open_cover()
+            self._update_scheduled_stop_travel_callback(self._tilt_time)
+        else:
+            self._travel_up_intermediate()
+            await self._becker.move_up_intermediate(self._channel)
 
     async def async_close_cover(self, **kwargs):
         """Set the cover to the closed position."""
@@ -294,8 +319,12 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     async def async_close_cover_tilt(self, **kwargs):
         """Close the cover tilt."""
         # Feature only available if SUPPORT_CLOSE_TILT is set
-        self._travel_down_intermediate()
-        await self._becker.move_down_intermediate(self._channel)
+        if self._intermediate_disable:
+            self.async_close_cover()
+            self._update_scheduled_stop_travel_callback(self._tilt_time)
+        else:
+            self._travel_down_intermediate()
+            await self._becker.move_down_intermediate(self._channel)
 
     async def async_stop_cover(self, **kwargs):
         """Set the cover to the stopped position."""
@@ -408,16 +437,18 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             cmd_arg = command + packet.group('argument')
             if command == COMMANDS['halt']:
                 self._travel_stop()
-            elif ((cmd_arg == COMMANDS['up_intermediate']) and
-                  (self._cover_features & SUPPORT_OPEN_TILT)):
+            elif command == COMMANDS['release'] and self._tilt_timeout > time.time():
+                self._travel_stop()
+            elif cmd_arg == COMMANDS['up_intermediate'] and not self._intermediate_disable:
                 self._travel_up_intermediate(self)
             elif command == COMMANDS['up']:
                 self._travel_to_position(OPEN_POSITION)
-            elif ((cmd_arg == COMMANDS['down_intermediate']) and
-                  (self._cover_features & SUPPORT_CLOSE_TILT)):
+                self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
+            elif cmd_arg == COMMANDS['down_intermediate'] and not self._intermediate_disable:
                 self._travel_down_intermediate(self)
             elif command == COMMANDS['down']:
                 self._travel_to_position(CLOSED_POSITION)
+                self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
 
     @callback
     async def _async_stop_travel(self, _):

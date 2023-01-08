@@ -10,6 +10,7 @@ from .becker_helper import generate_code
 from .becker_helper import BeckerCommunicator
 from .database import Database
 
+COMMAND_RELEASE = 0x00  # button release
 COMMAND_UP = 0x20
 COMMAND_UP2 = 0x21  # move up
 COMMAND_UP3 = 0x22  # move up
@@ -90,6 +91,8 @@ class Becker:
             codes.append(generate_code(channel, unit, COMMAND_UP5))
         elif cmd == "HALT":
             codes.append(generate_code(channel, unit, COMMAND_HALT))
+        elif cmd == "RELEASE":
+            codes.append(generate_code(channel, unit, COMMAND_RELEASE))
         elif cmd == "DOWN":
             codes.append(generate_code(channel, unit, COMMAND_DOWN))
         elif cmd == "DOWN2":
