@@ -25,12 +25,15 @@ CONF_UNIT = "unit"
 CONF_REMOTE_ID = "remote_id"
 CONF_TRAVELLING_TIME_DOWN = 'travelling_time_down'
 CONF_TRAVELLING_TIME_UP = 'travelling_time_up'
-CONF_INTERMEDIATE_DISABLE = 'intermediate_position_disable'
+CONF_INTERMEDIATE_DISABLE = 'intermediate_position_disable'         # deprecated
+CONF_INTERMEDIATE_POSITION = 'intermediate_position'
 CONF_INTERMEDIATE_POSITION_UP = 'intermediate_position_up'
 CONF_INTERMEDIATE_POSITION_DOWN = 'intermediate_position_down'
-CONF_INTERMEDIATE_ON_TILT = 'intermediate_on_tilt'
-CONF_TILT_SUPPORT = 'tilt_support'
-CONF_TILT_TIME = 'tilt_time'
+CONF_TILT_INTERMEDIATE = 'tilt_intermediate'
+CONF_TILT_BLIND = 'tilt_blind'
+CONF_TILT_TIME_BLIND = 'tilt_time_blind'
+
+TILT_FUNCTIONALITY = 'tilt_functionality'
 
 CLOSED_POSITION = 0
 VENTILATION_POSITION = 25
