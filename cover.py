@@ -36,8 +36,6 @@ from homeassistant.const import (
     CONF_FILENAME,
     CONF_FRIENDLY_NAME,
     CONF_VALUE_TEMPLATE,
-    STATE_CLOSED,
-    STATE_OPEN,
 )
 from .const import (
     DOMAIN,
@@ -63,6 +61,9 @@ from .const import (
     TILT_TIME,
     TILT_RECEIVE_TIMEOUT,
     TILT_FUNCTIONALITY,
+    TEMPLATE_VALID_CLOSE,
+    TEMPLATE_VALID_OPEN,
+    TEMPLATE_UNKNOWN_STATES
 )
 
 from .rf_device import PyBecker
@@ -70,16 +71,6 @@ from .rf_device import PyBecker
 _LOGGER = logging.getLogger(__name__)
 
 COVER_FEATURES = SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_STOP
-
-_VALID_STATES = [
-    STATE_OPEN,
-    STATE_CLOSED,
-    "true",
-    "false",
-    True,
-    False
-]
-
 
 COVER_SCHEMA = vol.Schema(
     {
@@ -213,6 +204,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         self._intermediate_position = intermediate_position
         self._intermediate_pos_up = intermediate_pos_up
         self._intermediate_pos_down = intermediate_pos_down
+        if intermediate_position:
+            self._attr[CONF_INTERMEDIATE_POSITION] = str(intermediate_position)
+            self._attr[CONF_INTERMEDIATE_POSITION_UP] = str(intermediate_pos_up)
+            self._attr[CONF_INTERMEDIATE_POSITION_DOWN] = str(intermediate_pos_down)
         # tilt settings
         self._tilt_intermediate = tilt_intermediate
         self._tilt_blind = tilt_blind
@@ -225,8 +220,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._attr[CONF_TILT_TIME_BLIND] = str(tilt_time_blind)
         if tilt_intermediate:
             self._attr[TILT_FUNCTIONALITY] = str(CONF_TILT_INTERMEDIATE)
-            self._attr[CONF_INTERMEDIATE_POSITION_UP] = str(intermediate_pos_up)
-            self._attr[CONF_INTERMEDIATE_POSITION_DOWN] = str(intermediate_pos_down)
         # Callbacks
         self._callbacks = dict()
         # Setup TravelCalculator
@@ -355,7 +348,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Feature only available if SUPPORT_OPEN_TILT is set
         if self._tilt_blind:
             await self.async_open_cover()
-            self._update_scheduled_stop_travel_callback(self._tilt_time)
+            self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
             self._travel_up_intermediate()
             await self._becker.move_up_intermediate(self._channel)
@@ -370,7 +363,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Feature only available if SUPPORT_CLOSE_TILT is set
         if self._tilt_blind:
             await self.async_close_cover()
-            self._update_scheduled_stop_travel_callback(self._tilt_time)
+            self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
             self._travel_down_intermediate()
             await self._becker.move_down_intermediate(self._channel)
@@ -418,14 +411,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
 
     def _travel_up_intermediate(self):
         pos = self.current_cover_position
-        if ((pos > self._intermediate_pos_up) or not self._intermediate_position):
+        if pos > self._intermediate_pos_up or not self._intermediate_position:
             self._travel_to_position(OPEN_POSITION)
         else:
             self._travel_to_position(self._intermediate_pos_up)
 
     def _travel_down_intermediate(self):
         pos = self.current_cover_position
-        if ((pos < self._intermediate_pos_down) or not self._intermediate_position):
+        if pos < self._intermediate_pos_down or not self._intermediate_position:
             self._travel_to_position(CLOSED_POSITION)
         else:
             self._travel_to_position(self._intermediate_pos_down)
@@ -485,15 +478,15 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             if command == COMMANDS['halt']:
                 self._travel_stop()
             elif command == COMMANDS['release'] and self._tilt_timeout > time.time():
-                if self._tilt_blind:
+                if self._tilt_blind and (self.is_opening or self.is_closing):
                     self._travel_stop()
             elif cmd_arg == COMMANDS['up_intermediate'] and self._tilt_intermediate:
-                self._travel_up_intermediate(self)
+                self._travel_up_intermediate()
             elif command == COMMANDS['up']:
                 self._travel_to_position(OPEN_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
             elif cmd_arg == COMMANDS['down_intermediate'] and self._tilt_intermediate:
-                self._travel_down_intermediate(self)
+                self._travel_down_intermediate()
             elif command == COMMANDS['down']:
                 self._travel_to_position(CLOSED_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
@@ -521,14 +514,17 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 '%s: Update template with result: %s with type %s',
                 self._name, result, type(result)
             )
-            if result in _VALID_STATES:
-                if result in (True, "true", STATE_OPEN):
-                    pos = OPEN_POSITION
-                else:
-                    pos = CLOSED_POSITION
+            if isinstance(result, str):
+                result = result.lower()
+            if result in TEMPLATE_VALID_OPEN:
+                pos = OPEN_POSITION
+            elif TEMPLATE_VALID_CLOSE:
+                pos = CLOSED_POSITION
             elif isinstance(result, int) or isinstance(result, float):
                 # Clip position to a range of 0 - 100
                 pos = round(max(min(result, OPEN_POSITION), CLOSED_POSITION))
+            elif result in TEMPLATE_UNKNOWN_STATES:
+                pos = self.current_cover_position
             else:
                 _LOGGER.error('%s: invalid template result: %s',
                     self._name, result

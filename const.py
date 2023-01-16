@@ -2,6 +2,11 @@
 
 import re
 
+from homeassistant.const import (
+    STATE_CLOSED,
+    STATE_OPEN,
+)
+
 from .pybecker.becker import (
     COMMAND_HALT,
     COMMAND_UP,
@@ -52,3 +57,7 @@ COMMANDS = {
 }
 
 REMOTE_ID = re.compile(r'(?P<id>[0-9A-F]{5,5}):(?P<ch>[0-9A-F]{1,1})')
+
+TEMPLATE_VALID_OPEN = [STATE_OPEN, 'true', True]
+TEMPLATE_VALID_CLOSE = [STATE_CLOSED, 'false', False]
+TEMPLATE_UNKNOWN_STATES = ['unknown', 'unavailable', None]
