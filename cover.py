@@ -411,14 +411,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
 
     def _travel_up_intermediate(self):
         pos = self.current_cover_position
-        if pos > self._intermediate_pos_up or not self._intermediate_position:
+        if pos >= self._intermediate_pos_up or not self._intermediate_position:
             self._travel_to_position(OPEN_POSITION)
         else:
             self._travel_to_position(self._intermediate_pos_up)
 
     def _travel_down_intermediate(self):
         pos = self.current_cover_position
-        if pos < self._intermediate_pos_down or not self._intermediate_position:
+        if pos <= self._intermediate_pos_down or not self._intermediate_position:
             self._travel_to_position(CLOSED_POSITION)
         else:
             self._travel_to_position(self._intermediate_pos_down)
@@ -474,7 +474,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         if ids in self._remode_ids:
             _LOGGER.debug("%s received a packet from dispatcher", self._name)
             command = packet.group('command') + b'0'
-            cmd_arg = command + packet.group('argument')
+            cmd_arg = packet.group('command') + packet.group('argument')
             if command == COMMANDS['halt']:
                 self._travel_stop()
             elif command == COMMANDS['release'] and self._tilt_timeout > time.time():
