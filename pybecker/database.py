@@ -1,3 +1,5 @@
+# pylint: disable=missing-function-docstring
+# pylint: disable=missing-class-docstring
 import logging
 import os
 import time
