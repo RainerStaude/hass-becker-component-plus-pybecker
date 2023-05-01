@@ -350,7 +350,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             await self.async_open_cover()
             self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
-            self._travel_up_intermediate()
+            self._travel_to_position(self._intermediate_pos_up)
             await self._becker.move_up_intermediate(self._channel)
 
     async def async_close_cover(self, **kwargs):
@@ -365,7 +365,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             await self.async_close_cover()
             self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
-            self._travel_down_intermediate()
+            self._travel_to_position(self._intermediate_pos_down)
             await self._becker.move_down_intermediate(self._channel)
 
     async def async_stop_cover(self, **kwargs):
@@ -408,20 +408,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._tc.set_position(50)
         _LOGGER.debug("%s stopped at position %s", self.name, self.current_cover_position)
         self._update_scheduled_ha_state_callback(0)
-
-    def _travel_up_intermediate(self):
-        pos = self.current_cover_position
-        if pos >= self._intermediate_pos_up or not self._intermediate_position:
-            self._travel_to_position(OPEN_POSITION)
-        else:
-            self._travel_to_position(self._intermediate_pos_up)
-
-    def _travel_down_intermediate(self):
-        pos = self.current_cover_position
-        if pos <= self._intermediate_pos_down or not self._intermediate_position:
-            self._travel_to_position(CLOSED_POSITION)
-        else:
-            self._travel_to_position(self._intermediate_pos_down)
 
     def _update_scheduled_ha_state_callback(self, delay=None):
         """

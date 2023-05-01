@@ -152,13 +152,18 @@ and one when closing the cover. Please see the manual of your cover to see how
 to program these intermediate positions in your cover.  
 Your cover will travel to the corresponding intermediate position if your double
 tab the UP or DOWN button on your remote.  
-The default intermediate positions in the Becker integraten are `25` for UP 
-direction and `75` for DOWN direction. If the cover already passed the intermediate
-position it will close instead.
-This behaviour is imitated by the Becker integration in Home Assistant. To imitate
-the cover movement properly in Home Assistant it is required to set the positions properly.
-You can calculate the `intermediate_position_up` by dividing the measured runtime from 
-closed position to the intermediate position in direction UP by the `travelling_time_up`.
+The default intermediate positions in the Becker integration are `25` for UP 
+direction and `75` for DOWN direction, where `0` is `closed` and `100` is `open`.
+This behavior is imitated by the Becker integration in Home Assistant. To imitate
+the cover movement properly in Home Assistant it is required to set the positions properly.  
+You can calculate the `intermediate_position_up`. You need to measure the runtime from 
+closed position to the intermediate position in direction UP (double tap UP 
+on your remote). Divide the measured time by the `travelling_time_up` and 
+multiply the result by `100`.  
+You can do the same for the `intermediate_position_up`. Measure the runtime from 
+closed position to the intermediate position in direction DOWN (double tap DOWN on 
+your remote). Divide the measured time by the `travelling_time_up` and multiply 
+the result by `100`.
 ```yaml
   - platform: becker
     covers:
@@ -168,7 +173,7 @@ closed position to the intermediate position in direction UP by the `travelling_
         intermediate_position_up: 70
         intermediate_position_down: 40
 ```
-If you have not programmed any intermediate positions in your cover you should 
+If you have not programmed any intermediate positions in your cover, you should 
 disable the intermediate cover position.
 ```yaml
   - platform: becker
