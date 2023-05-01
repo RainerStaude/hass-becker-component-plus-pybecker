@@ -467,12 +467,12 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 if self._tilt_blind and (self.is_opening or self.is_closing):
                     self._travel_stop()
             elif cmd_arg == COMMANDS['up_intermediate'] and self._intermediate_position:
-                self._travel_up_intermediate()
+                self._travel_to_position(self._intermediate_pos_up)
             elif command == COMMANDS['up']:
                 self._travel_to_position(OPEN_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
             elif cmd_arg == COMMANDS['down_intermediate'] and self._intermediate_position:
-                self._travel_down_intermediate()
+                self._travel_to_position(self._intermediate_pos_down)
             elif command == COMMANDS['down']:
                 self._travel_to_position(CLOSED_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
