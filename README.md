@@ -263,3 +263,5 @@ Becker integration:
 [Integrating Becker Motors](https://community.home-assistant.io/t/integrating-becker-motors-in-to-hassio/151705)
 Another way is to open a new issue on 
 [GitHub](https://github.com/RainerStaude/hass-becker-component-plus-pybecker/issues).
+
+#fixed_xknx
