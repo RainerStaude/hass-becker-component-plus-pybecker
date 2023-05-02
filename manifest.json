@@ -4,7 +4,7 @@
   "documentation": "",
   "version": "0.2.0",
   "requirements": [
-    "xknx==0.18.15"
+    "xknx"
   ],
   "dependencies": [],
   "codeowners": ["@nicolasberthel", "@RainerStaude"]
