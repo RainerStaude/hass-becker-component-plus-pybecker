@@ -4,7 +4,7 @@ import logging
 
 import time
 import voluptuous as vol
-from travelcalculator import TravelCalculator
+from .travelcalculator import TravelCalculator
 
 from homeassistant.core import callback
 from homeassistant.exceptions import (
