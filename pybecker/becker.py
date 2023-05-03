@@ -2,7 +2,7 @@
 # pylint: disable=missing-class-docstring
 import logging
 import re
-import time
+import asyncio
 from random import randrange
 
 from .becker_helper import finalize_code
@@ -147,7 +147,7 @@ class Becker:
             unit[1] += 1
             await self.write([code])
 
-            time.sleep(int(mt.group(2)))
+            await asyncio.sleep(int(mt.group(2)))
 
             # stop moving
             code = generate_code(channel, unit, COMMAND_HALT)
@@ -276,4 +276,4 @@ class Becker:
                     "Init call to %s:%s #%d", un, 1, init_call_count)
                 await self.stop(':'.join((str(un), '1')))
                 # 0.5 to 0.9 seconds (works with my Roto cover)
-                time.sleep(randrange(5, 10, 1) / 10)
+                await asyncio.sleep(randrange(5, 10, 1) / 10)

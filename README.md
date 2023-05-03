@@ -94,12 +94,13 @@ cover:
         travelling_time_down: 26.5
 ```
 
-### Position by value template
+## Position by value template
 In some cases it might be useful to add a value template to determine the position
 of your cover. For example for a roof window with rain sensor. In case of rain, 
 the roof window will close, but you cannot determine this without an additional 
 sensor.  
-Every time the template generates a new result, the position of the cover is overwritten by the result of the template.  
+Every time the template generates a new result, the position of the cover is overwritten 
+by the result of the template.  
 The following results are valid:
 - any number between `0` and `100` where `0` is `closed` and `100` is `open`
 - logic values where
@@ -107,8 +108,9 @@ The following results are valid:
   - `'open'`, `'true'`, `True` are `open`
 - unknown values `'unknown'`, `'unavailable'`, `'none'`, `None`  
 The unknown values are useful to set the position only to confirm one specific 
-position, like closed in the example above. For any other values the position 
-will not changed. This allows to use the value template in conjunction with the position by travel time.
+position, like closed in the example below. For any other values the position 
+will not changed. This allows to use the value template in conjunction with the position 
+by travel time.
 ```yaml
 cover:
   - platform: becker
@@ -117,11 +119,11 @@ cover:
         friendly_name: "Roof window"
         channel: "3:1"
         travelling_time_up: 15
-        # Set position to closed (False) if sensor.roof_window is closed, otherwise keep value
+        # Set position to closed (0) if sensor.roof_window is closed, otherwise keep value
         value_template: "{{ 0 if is_state('sensor.roof_window', 'closed') else None }}"
 ```
 
-### Position tracking for cover commands from Becker remotes
+## Position tracking for cover commands from Becker remotes
 Usually there is at least one remote, the master remote, used to control the cover.
 The remote communicates directly with the cover. It is possible to receive and track 
 all remote commands within home assistant. Therefore the position of the cover
@@ -144,19 +146,24 @@ cover:
         remote_id: "12345:2"
 ```
 
-### Intermediate cover position
+## Intermediate cover position
 Becker covers supports two intermediate positions. One when opening the cover 
 and one when closing the cover. Please see the manual of your cover to see how
 to program these intermediate positions in your cover.  
 Your cover will travel to the corresponding intermediate position if your double
 tab the UP or DOWN button on your remote.  
-The default intermediate positions in the Becker integraten are `25` for UP 
-direction and `75` for DOWN direction. If the cover already passed the intermediate
-position it will close instead.
-This behaviour is imitated by the Becker integration in Home Assistant. To imitate
-the cover movement properly in Home Assistant it is required to set the positions properly.
-You can calculate the `intermediate_position_up` by dividing the measured runtime from 
-closed position to the intermediate position in direction UP by the `travelling_time_up`.
+The default intermediate positions in the Becker integration are `25` for UP 
+direction and `75` for DOWN direction, where `0` is `closed` and `100` is `open`.
+This behavior is imitated by the Becker integration in Home Assistant. To imitate
+the cover movement properly in Home Assistant it is required to set the positions properly.  
+You can calculate the `intermediate_position_up`. You need to measure the runtime from 
+closed position to the intermediate position in direction UP (double tap UP 
+on your remote). Divide the measured time by the `travelling_time_up` and 
+multiply the result by `100`.  
+You can do the same for the `intermediate_position_up`. Measure the runtime from 
+closed position to the intermediate position in direction DOWN (double tap DOWN on 
+your remote). Divide the measured time by the `travelling_time_up` and multiply 
+the result by `100`.
 ```yaml
   - platform: becker
     covers:
@@ -166,7 +173,7 @@ closed position to the intermediate position in direction UP by the `travelling_
         intermediate_position_up: 70
         intermediate_position_down: 40
 ```
-If you have not programmed any intermediate positions in your cover you should 
+If you have not programmed any intermediate positions in your cover, you should 
 disable the intermediate cover position.
 ```yaml
   - platform: becker
@@ -177,7 +184,7 @@ disable the intermediate cover position.
         intermediate_position: off
 ```
 
-### Tilt intermediate
+## Tilt intermediate
 The Becker integration provide the ability to control the intermediate position from 
 Home Assistant user interface. Therefore the tilt functionality of Home Assistant is used 
 to issue the commands to drive to intermediate positions.
@@ -194,7 +201,7 @@ This will also disable the service `cover.close_cover_tilt` and `cover.open_cove
 ```
 Note: You still need to set the intermediate cover position appropriately!
 
-### Tilt blind
+## Tilt blind
 The Becker integration provides support for blinds. The Becker blinds allow to control
 their tilt position by short press of the UP or DOWN button on their master remote. 
 A long press of the UP or DOWN button fully open or closes the blinds.  
@@ -212,7 +219,7 @@ This time can be adapted to your needs.
         tilt_time_blind: 0.5
 ```
 
-## Pairing the Becker USB Stick with your covers
+# Pairing the Becker USB Stick with your covers
 To use your cover in HA you need to pair it first with the Becker USB stick. The
 pairing is always between your remote and the shutter. The shutter will react on 
 the commands of all paired remotes.  
@@ -237,7 +244,7 @@ data:
   unit: 1
 ```
 
-## Troubleshooting
+# Troubleshooting
 If you have any trouble follow these steps:
 - Restart Home Assistant after you have plugged in the USB stick
 - Enable debug log for becker.  
@@ -250,7 +257,17 @@ logger:
     # This must correspond to the folder name of your /config/custom_components/becker folder
     custom_components.becker: debug
 ```
-This enable DEBUG messages to the home-assistant.log file in your config folder.  
+
+You can also change the log configuration dynamically by calling the `logger.set_level` service. 
+This method allows you to enable debug logging only for a limited time:
+
+```yaml
+service: logger.set_level
+data:
+  custom_components.becker: debug
+```
+
+All messages are logged to the home-assistant.log file in your config folder.  
 It is also helpful to find out the Remote ID of your Becker Remote. The message 
 will be something like below every time you press a key on your Remote:  
 `... DEBUG ... \[custom_components.becker.pybecker.becker_helper]` Received packet: 
@@ -263,3 +280,5 @@ Becker integration:
 [Integrating Becker Motors](https://community.home-assistant.io/t/integrating-becker-motors-in-to-hassio/151705)
 Another way is to open a new issue on 
 [GitHub](https://github.com/RainerStaude/hass-becker-component-plus-pybecker/issues).
+
+To disable debug log for becker set the level back from `debug` to `info`.
