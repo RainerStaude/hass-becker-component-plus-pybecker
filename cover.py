@@ -4,7 +4,7 @@ import logging
 
 import time
 import voluptuous as vol
-from xknx.devices import TravelCalculator
+from travelcalculator import TravelCalculator
 
 from homeassistant.core import callback
 from homeassistant.exceptions import (
@@ -383,14 +383,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 await self._becker.move_down(self._channel)
             elif self._tc.is_opening():
                 await self._becker.move_up(self._channel)
-            if 0 < self._tc.travel_to_position < 100:
+            if 0 < pos < 100:
                 self._update_scheduled_stop_travel_callback(travel_time)
 
     def _travel_to_position(self, position):
         """Start TravelCalculator and update ha-state."""
         # In TravelCalculator 0 is open, 100 is closed.
-        travel_time = self._tc._calculate_travel_time(
-            self.current_cover_position - position
+        travel_time = self._tc.calculate_travel_time(
+            self.current_cover_position, position
         )
         if self._template is None:
             _LOGGER.debug(
@@ -468,11 +468,13 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                     self._travel_stop()
             elif cmd_arg == COMMANDS['up_intermediate'] and self._intermediate_position:
                 self._travel_to_position(self._intermediate_pos_up)
+                self._tilt_timeout = time.time()        # reset timeout
             elif command == COMMANDS['up']:
                 self._travel_to_position(OPEN_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
             elif cmd_arg == COMMANDS['down_intermediate'] and self._intermediate_position:
                 self._travel_to_position(self._intermediate_pos_down)
+                self._tilt_timeout = time.time()        # reset timeout
             elif command == COMMANDS['down']:
                 self._travel_to_position(CLOSED_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
