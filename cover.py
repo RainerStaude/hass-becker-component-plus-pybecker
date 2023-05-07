@@ -388,9 +388,9 @@ class BeckerEntity(CoverEntity, RestoreEntity):
 
     def _travel_to_position(self, position):
         """Start TravelCalculator and update ha-state."""
-        # In TravelCalculator 0 is open, 100 is closed.
+        # In TravelCalculator 0 is open, 100 is closed. Swap from_ and to_ position
         travel_time = self._tc.calculate_travel_time(
-            self.current_cover_position, position
+            position, self.current_cover_position
         )
         if self._template is None:
             _LOGGER.debug(
