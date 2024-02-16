@@ -2,18 +2,15 @@
 
 import re
 
-from homeassistant.const import (
-    STATE_CLOSED,
-    STATE_OPEN,
-)
+from homeassistant.const import STATE_CLOSED, STATE_OPEN
 
 from .pybecker.becker import (
-    COMMAND_HALT,
-    COMMAND_UP,
-    COMMAND_UP5,
     COMMAND_DOWN,
     COMMAND_DOWN5,
+    COMMAND_HALT,
     COMMAND_RELEASE,
+    COMMAND_UP,
+    COMMAND_UP5,
 )
 
 DOMAIN = "becker"

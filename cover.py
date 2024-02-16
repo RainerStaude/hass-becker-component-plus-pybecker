@@ -1,34 +1,16 @@
 """Support for Becker RF covers."""
 
 import logging
-
 import time
+
 import voluptuous as vol
-from .travelcalculator import TravelCalculator
 
-from homeassistant.core import callback
-from homeassistant.exceptions import (
-    TemplateError,
-)
-
-import homeassistant.helpers.config_validation as cv
-from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.event import (
-    async_call_later,
-    TrackTemplate,
-    async_track_template_result,
-)
 from homeassistant.components.cover import (
-    PLATFORM_SCHEMA,
-    SUPPORT_CLOSE,
-    SUPPORT_CLOSE_TILT,
-    SUPPORT_OPEN,
-    SUPPORT_OPEN_TILT,
-    SUPPORT_STOP,
-    ATTR_POSITION,
     ATTR_CURRENT_POSITION,
-    SUPPORT_SET_POSITION,
+    ATTR_POSITION,
+    PLATFORM_SCHEMA,
     CoverEntity,
+    CoverEntityFeature,
 )
 from homeassistant.const import (
     CONF_COVERS,
@@ -37,40 +19,50 @@ from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_VALUE_TEMPLATE,
 )
+from homeassistant.core import callback
+from homeassistant.exceptions import TemplateError
+import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.event import (
+    TrackTemplate,
+    async_call_later,
+    async_track_template_result,
+)
+from homeassistant.helpers.restore_state import RestoreEntity
+
 from .const import (
-    DOMAIN,
-    RECEIVE_MESSAGE,
-    CONF_CHANNEL,
-    DEVICE_CLASS,
     CLOSED_POSITION,
-    OPEN_POSITION,
-    VENTILATION_POSITION,
-    INTERMEDIATE_POSITION,
-    CONF_REMOTE_ID,
-    CONF_TRAVELLING_TIME_DOWN,
-    CONF_TRAVELLING_TIME_UP,
-    CONF_INTERMEDIATE_POSITION_UP,
-    CONF_INTERMEDIATE_POSITION_DOWN,
+    COMMANDS,
+    CONF_CHANNEL,
     CONF_INTERMEDIATE_DISABLE,
     CONF_INTERMEDIATE_POSITION,
-    COMMANDS,
-    REMOTE_ID,
-    CONF_TILT_INTERMEDIATE,
+    CONF_INTERMEDIATE_POSITION_DOWN,
+    CONF_INTERMEDIATE_POSITION_UP,
+    CONF_REMOTE_ID,
     CONF_TILT_BLIND,
+    CONF_TILT_INTERMEDIATE,
     CONF_TILT_TIME_BLIND,
-    TILT_TIME,
-    TILT_RECEIVE_TIMEOUT,
-    TILT_FUNCTIONALITY,
+    CONF_TRAVELLING_TIME_DOWN,
+    CONF_TRAVELLING_TIME_UP,
+    DEVICE_CLASS,
+    DOMAIN,
+    INTERMEDIATE_POSITION,
+    OPEN_POSITION,
+    RECEIVE_MESSAGE,
+    REMOTE_ID,
+    TEMPLATE_UNKNOWN_STATES,
     TEMPLATE_VALID_CLOSE,
     TEMPLATE_VALID_OPEN,
-    TEMPLATE_UNKNOWN_STATES
+    TILT_FUNCTIONALITY,
+    TILT_RECEIVE_TIMEOUT,
+    TILT_TIME,
+    VENTILATION_POSITION,
 )
-
 from .rf_device import PyBecker
+from .travelcalculator import TravelCalculator
 
 _LOGGER = logging.getLogger(__name__)
 
-COVER_FEATURES = SUPPORT_OPEN | SUPPORT_CLOSE | SUPPORT_STOP
+COVER_FEATURES = CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
 
 COVER_SCHEMA = vol.Schema(
     {
@@ -214,7 +206,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         self._tilt_time_blind = tilt_time_blind
         self._tilt_timeout = time.time()
         if tilt_intermediate or tilt_blind:
-            self._cover_features |= SUPPORT_OPEN_TILT | SUPPORT_CLOSE_TILT
+            self._cover_features |= CoverEntityFeature.OPEN_TILT | CoverEntityFeature.CLOSE_TILT
         if tilt_blind:
             self._attr[TILT_FUNCTIONALITY] = str(CONF_TILT_BLIND)
             self._attr[CONF_TILT_TIME_BLIND] = str(tilt_time_blind)
@@ -225,11 +217,11 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Setup TravelCalculator
         # todo enable set position and self_template
         if not ((travel_time_down or travel_time_up) is None or self._template is not None):
-            self._cover_features |= SUPPORT_SET_POSITION
+            self._cover_features |= CoverEntityFeature.SET_POSITION
 
         travel_time_down = travel_time_down or travel_time_up or 0
         travel_time_up = travel_time_up or travel_time_down or 0
-        if self._cover_features & SUPPORT_SET_POSITION:
+        if self._cover_features & CoverEntityFeature.SET_POSITION:
             self._attr[CONF_TRAVELLING_TIME_DOWN] = str(travel_time_down)
             self._attr[CONF_TRAVELLING_TIME_UP] = str(travel_time_up)
         self._tc = TravelCalculator(travel_time_down, travel_time_up)
@@ -312,7 +304,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     def is_opening(self):
         """Return if the cover is opening or not."""
         action = False
-        if self._cover_features & SUPPORT_SET_POSITION:
+        if self._cover_features & CoverEntityFeature.SET_POSITION:
             action = self._tc.is_opening()
         return action
 
@@ -320,7 +312,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     def is_closing(self):
         """Return if the cover is closing or not."""
         action = False
-        if self._cover_features & SUPPORT_SET_POSITION:
+        if self._cover_features & CoverEntityFeature.SET_POSITION:
             action = self._tc.is_closing()
         return action
 
@@ -404,7 +396,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     def _travel_stop(self):
         """Stop TravelCalculator and update ha-state."""
         self._tc.stop()
-        if not (self._cover_features & SUPPORT_SET_POSITION) and self._template is None:
+        if not (self._cover_features & CoverEntityFeature.SET_POSITION) and self._template is None:
             self._tc.set_position(50)
         _LOGGER.debug("%s stopped at position %s", self.name, self.current_cover_position)
         self._update_scheduled_ha_state_callback(0)
@@ -412,10 +404,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     def _update_scheduled_ha_state_callback(self, delay=None):
         """
         Update ha-state callback
-        None: unsubscibe pending callback
+        None: unsubscribe pending callback
         0:    update now
-        > 0:  update now and setup callback after delay later
-        """
+        > 0:  update now and setup callback after delay later.
+        """  # noqa: D205, D212
         # unsubscribe outdated pending callbacks
         self._callbacks.pop('update_ha', lambda: None)()
         # Schedule callback to update ha-state at end of travel
