@@ -98,9 +98,13 @@ class Becker:
         elif cmd == "DOWN2":
             codes.append(generate_code(channel, unit, COMMAND_DOWN5))
         elif cmd == "TRAIN":
+            codes.append(generate_code(channel, unit, COMMAND_PAIR))
+            unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
             codes.append(generate_code(channel, unit, 0x00))
+            unit[1] += 1
+            codes.append(generate_code(channel, unit, COMMAND_PAIR))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             # set unit as configured
