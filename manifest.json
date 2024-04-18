@@ -2,7 +2,7 @@
   "domain": "becker",
   "name": "Becker",
   "documentation": "",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "requirements": [],
   "dependencies": [],
   "codeowners": ["@nicolasberthel", "@RainerStaude"]
