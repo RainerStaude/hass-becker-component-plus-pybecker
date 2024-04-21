@@ -102,13 +102,13 @@ class Becker:
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
-            codes.append(generate_code(channel, unit, 0x00))
+            codes.append(generate_code(channel, unit, COMMAND_RELEASE))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
-            codes.append(generate_code(channel, unit, 0x00))
+            codes.append(generate_code(channel, unit, COMMAND_RELEASE))
             # set unit as configured
             unit[2] = 1
         elif cmd == "CLEARPOS":
@@ -124,7 +124,7 @@ class Becker:
         elif cmd == "REMOVE":
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
-            codes.append(generate_code(channel, unit, 0x00))
+            codes.append(generate_code(channel, unit, COMMAND_RELEASE))
             unit[1] += 1
             codes.append(generate_code(channel, unit, COMMAND_PAIR2))
             unit[1] += 1
