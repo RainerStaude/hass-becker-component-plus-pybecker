@@ -22,20 +22,21 @@ DEFAULT_DEVICE_NAME = '/dev/serial/by-id/usb-BECKER-ANTRIEBE_GmbH_CDC_RS232_v125
 
 MESSAGE = re.compile(
       STX
-    + CODE_PREFIX.encode()
-    + rb'[0-9A-F]{4,4}'
-    + CODE_SUFFIX.encode()
-    + rb'(?P<unit_id>[0-9A-F]{5,5})'
-    + rb'[0-9A-F]{6,6}'
-    + rb'(?P<channel>[0-9A-F]{1,1})'
-    + rb'00'
-    + rb'(?P<command>[0-9A-F]{1,1})'
-    + rb'(?P<argument>[0-9A-F]{1,1})'
-    + rb'[0-9A-F]{2,2}'
+    + rb'[0-9A-F]{14,14}'                               # prefix
+    + rb'[0-9A-F]{4,4}'                                 # increment
+    + rb'[0-9A-F]{6,6}'                                 # suffix
+    + rb'(?P<unit_id>[0-9A-F]{5,5})'                    # unit id
+    + rb'[0-9A-F]{6,6}'                                 # mode
+    + rb'(?P<channel>[0-9A-F]{1,1})'                    # channel
+    + rb'[0-9A-F]{2,2}'                                 #
+    + rb'(?P<command>[0-9A-F]{1,1})'                    # command
+    + rb'(?P<argument>[0-9A-F]{1,1})'                   # argument
+    + rb'[0-9A-F]{2,2}'                                 # checksum
     + ETX, re.I
 )
 
 COMMANDS = {b'0': 'RELEASE', b'1': 'HALT', b'2': 'UP', b'4': 'DOWN', b'8': 'TRAIN'}
+
 COMMUNICATION_TIMEOUT = 0.3
 
 _LOGGER = logging.getLogger(__name__)
@@ -230,6 +231,7 @@ class BeckerCommunicator(threading.Thread):
                 data = self._connection.read()
                 if len(data) > 0:
                     self._timeout = time.time() + COMMUNICATION_TIMEOUT
+                    _LOGGER.debug("Received raw data: %s", data)
                 self._read_buffer += data
                 self._parse()
             # Get packet from write queue if timeout expired
@@ -244,7 +246,7 @@ class BeckerCommunicator(threading.Thread):
                     self._log(packet, "Sent packet: ")
 
             # Sleep for thread switch and wait time between packets
-            time.sleep(0.01)
+            time.sleep(0.1)
             # Ensure all packets in queue are send before thread is stopped
             if self._stop_flag.is_set() and self._write_queue.empty():
                 break
