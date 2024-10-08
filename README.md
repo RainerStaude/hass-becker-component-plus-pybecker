@@ -244,6 +244,24 @@ data:
   unit: 1
 ```
 
+# Events for Remote Commands
+In addition to processing remote commands to update cover states, the
+integration also fires explicit events of type
+`becker_remote_packet_received` for each command it receives from a remote.
+Those events can be used to trigger automations when remote buttons are pressed
+or for other custom purposes.
+
+Each event contains data about the remote unit, channel and the command
+that has been received, for instance:
+
+```yaml
+event_type: becker_remote_packet_received
+data:
+  unit: "12345"
+  channel: "1"
+  command: "up"
+```
+
 # Troubleshooting
 If you have any trouble follow these steps:
 - Restart Home Assistant after you have plugged in the USB stick
