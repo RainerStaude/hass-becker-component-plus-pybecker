@@ -36,7 +36,7 @@ MESSAGE = re.compile(
 )
 
 COMMANDS = {b'0': 'RELEASE', b'1': 'HALT', b'2': 'UP', b'4': 'DOWN', b'8': 'TRAIN'}
-COMMUNICATION_TIMEOUT = 0.1
+COMMUNICATION_TIMEOUT = 0.3
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -244,7 +244,7 @@ class BeckerCommunicator(threading.Thread):
                     self._log(packet, "Sent packet: ")
 
             # Sleep for thread switch and wait time between packets
-            time.sleep(0.01)
+            time.sleep(0.1)
             # Ensure all packets in queue are send before thread is stopped
             if self._stop_flag.is_set() and self._write_queue.empty():
                 break
