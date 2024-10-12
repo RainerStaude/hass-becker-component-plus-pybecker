@@ -28,6 +28,7 @@ from homeassistant.helpers.event import (
     async_track_template_result,
 )
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import (
     CLOSED_POSITION,
@@ -250,8 +251,8 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         if self._tc.current_position() is None:
             self._tc.set_position(100 - CLOSED_POSITION)
         # Setup callback on received packets
-        receive = self.hass.helpers.dispatcher.async_dispatcher_connect(
-            f"{DOMAIN}.{RECEIVE_MESSAGE}", self._async_message_received
+        receive = async_dispatcher_connect(
+            self.hass, f"{DOMAIN}.{RECEIVE_MESSAGE}", self._async_message_received
         )
         self.async_on_remove(receive)
         # Setup callback on template changes
