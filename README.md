@@ -1,7 +1,7 @@
 # Becker cover support for Home Assistant
 
 A native Home Assistant component to control Becker RF shutters with a Becker Centronic USB stick.
-It supports the Becker ***Centronic USB Stick*** with the Becker order number ***4035 200 041 0***.
+It works with the Becker ***Centronic USB Stick*** with the Becker order number ***4035 200 041 0*** and ***4035 000 041 0***.
 It works for the Becker ***Centronic*** roller shutters, blinds and sun protection as well as for Roto roof windows with RF remotes.  
 It is based on the work of [ole](https://github.com/ole1986) and [Nicolas Berthel](https://github.com/nicolasberthel).
 
@@ -242,6 +242,24 @@ data:
   # Example data to pair your cover with USB stick unit 1 - channel 1
   channel: 1
   unit: 1
+```
+
+# Events for Remote Commands
+In addition to processing remote commands to update cover states, the
+integration also fires explicit events of type
+`becker_remote_packet_received` for each command it receives from a remote.
+Those events can be used to trigger automations when remote buttons are pressed
+or for other custom purposes.
+
+Each event contains data about the remote unit, channel and the command
+that has been received, for instance:
+
+```yaml
+event_type: becker_remote_packet_received
+data:
+  unit: "12345"
+  channel: "1"
+  command: "up"
 ```
 
 # Troubleshooting

@@ -20,6 +20,7 @@ DEVICE = "device"
 DEVICE_CLASS = "shutter"
 
 RECEIVE_MESSAGE = "receive_message"
+REMOTE_PACKET_EVENT = "remote_packet_received"
 
 CONF_CHANNEL = "channel"
 CONF_COVERS = "covers"

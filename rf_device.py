@@ -1,5 +1,6 @@
 """Handling of the Becker USB device."""
 
+import codecs
 import logging
 import os
 
@@ -7,7 +8,14 @@ import voluptuous as vol
 from .pybecker.becker import Becker
 from .pybecker.database import FILE_PATH, SQL_DB_FILE
 
-from .const import CONF_CHANNEL, CONF_UNIT, DOMAIN, RECEIVE_MESSAGE
+from .const import (
+    COMMANDS,
+    CONF_CHANNEL,
+    CONF_UNIT,
+    DOMAIN,
+    RECEIVE_MESSAGE,
+    REMOTE_PACKET_EVENT,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,3 +101,15 @@ class PyBecker:
         """Handle Becker device callback for received packets."""
         _LOGGER.debug("Received packet for dispatcher")
         hass.helpers.dispatcher.dispatcher_send(f"{DOMAIN}.{RECEIVE_MESSAGE}", packet)
+
+        # Also fire an explicit event that external applications can listen to
+        # if that is of use to them.
+        data = {
+            "unit": codecs.decode(packet.group("unit_id"), "ascii"),
+            "channel": codecs.decode(packet.group("channel"), "ascii"),
+        }
+        command = packet.group("command") + b"0"
+        command_name = [nm for nm, cmd in COMMANDS.items() if cmd == command]
+        if command_name:
+            data["command"] = command_name[0]
+        hass.bus.fire(f"{DOMAIN}_{REMOTE_PACKET_EVENT}", data)
