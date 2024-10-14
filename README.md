@@ -1,7 +1,7 @@
 # Becker cover support for Home Assistant
 
 A native Home Assistant component to control Becker RF shutters with a Becker Centronic USB stick.
-It supports the Becker ***Centronic USB Stick*** with the Becker order number ***4035 200 041 0***.
+It works with the Becker ***Centronic USB Stick*** with the Becker order number ***4035 200 041 0*** and ***4035 000 041 0***.
 It works for the Becker ***Centronic*** roller shutters, blinds and sun protection as well as for Roto roof windows with RF remotes.  
 It is based on the work of [ole](https://github.com/ole1986) and [Nicolas Berthel](https://github.com/nicolasberthel).
 
