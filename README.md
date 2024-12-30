@@ -39,7 +39,7 @@ cover:
       kitchen:
         friendly_name: "Kitchen Cover"
         # Becker Centronic USB stick provides up to five units (1-5) with up to seven (1-7) channels
-        # Unit 1 - Channel 2
+        # Unit 1 - Channel 1
         channel: "1"
       bedroom:
         friendly_name: "Bedroom Cover"
