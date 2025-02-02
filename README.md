@@ -262,6 +262,17 @@ data:
   command: "up"
 ```
 
+# Units and Channels
+The USB stick acts like a remote control
+The remote control protocol is able to access up to 7 devices like shutters, these are addressed as "channels" (1-7). There's also a broadcast channel (15) which addresses all of the devices at the same time. With this you are able to send a "UP" or "DOWN" command to all the covers at the same time.
+
+Units are used for devices like shutters. Also, remote controls get an own unit id.
+The software is able to "emulate" up to 5 remote controls, named "units".
+For these units 1-5, the stick is configured internally to use unit numbers 1737b, 1737c, 1737d, 1737e and 1737f.
+You can also see these unit id's in the database.
+If you leave out the unit number, the unit number 1 will be used, so the USB stick uses 1737b as a unit id.
+I think that's all the magic behind the Becker protocol.
+
 # Troubleshooting
 If you have any trouble follow these steps:
 - Restart Home Assistant after you have plugged in the USB stick
