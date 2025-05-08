@@ -5,6 +5,7 @@ import logging
 import os
 
 import voluptuous as vol
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from .pybecker.becker import Becker
 from .pybecker.database import FILE_PATH, SQL_DB_FILE
 
@@ -100,7 +101,7 @@ class PyBecker:
     def callback(hass, packet):
         """Handle Becker device callback for received packets."""
         _LOGGER.debug("Received packet for dispatcher")
-        hass.helpers.dispatcher.dispatcher_send(f"{DOMAIN}.{RECEIVE_MESSAGE}", packet)
+        async_dispatcher_connect(hass, f"{DOMAIN}.{RECEIVE_MESSAGE}", packet)
 
         # Also fire an explicit event that external applications can listen to
         # if that is of use to them.
