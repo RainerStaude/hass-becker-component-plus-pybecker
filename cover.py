@@ -499,7 +499,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 result = result.lower()
             if result in TEMPLATE_VALID_OPEN:
                 pos = OPEN_POSITION
-            elif TEMPLATE_VALID_CLOSE:
+            elif result in TEMPLATE_VALID_CLOSE:
                 pos = CLOSED_POSITION
             elif isinstance(result, int) or isinstance(result, float):
                 # Clip position to a range of 0 - 100
