@@ -34,16 +34,22 @@ from .const import (
     CLOSED_POSITION,
     COMMANDS,
     CONF_CHANNEL,
+    CONF_COMMAND_RETRY_DELAY,
+    CONF_COMMAND_RETRY_MAX,
     CONF_INTERMEDIATE_DISABLE,
     CONF_INTERMEDIATE_POSITION,
     CONF_INTERMEDIATE_POSITION_DOWN,
     CONF_INTERMEDIATE_POSITION_UP,
+    CONF_QUEUE_SIZE,
     CONF_REMOTE_ID,
     CONF_TILT_BLIND,
     CONF_TILT_INTERMEDIATE,
     CONF_TILT_TIME_BLIND,
     CONF_TRAVELLING_TIME_DOWN,
     CONF_TRAVELLING_TIME_UP,
+    DEFAULT_COMMAND_RETRY_DELAY,
+    DEFAULT_COMMAND_RETRY_MAX,
+    DEFAULT_QUEUE_SIZE,
     DEVICE_CLASS,
     DOMAIN,
     INTERMEDIATE_POSITION,
@@ -58,6 +64,7 @@ from .const import (
     TILT_TIME,
     VENTILATION_POSITION,
 )
+from .pybecker.becker_helper import BeckerConnectionError
 from .rf_device import PyBecker
 from .travelcalculator import TravelCalculator
 
@@ -88,6 +95,15 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
         vol.Required(CONF_COVERS): cv.schema_with_slug_keys(COVER_SCHEMA),
         vol.Optional(CONF_DEVICE): cv.string,
         vol.Optional(CONF_FILENAME): cv.string,
+        vol.Optional(CONF_QUEUE_SIZE, default=DEFAULT_QUEUE_SIZE): vol.All(
+            cv.positive_int, vol.Range(min=10, max=1000)
+        ),
+        vol.Optional(CONF_COMMAND_RETRY_MAX, default=DEFAULT_COMMAND_RETRY_MAX): vol.All(
+            cv.positive_int, vol.Range(min=0, max=10)
+        ),
+        vol.Optional(CONF_COMMAND_RETRY_DELAY, default=DEFAULT_COMMAND_RETRY_DELAY): vol.All(
+            cv.positive_float, vol.Range(min=0.1, max=10.0)
+        ),
     }
 )
 
@@ -97,8 +113,27 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     covers = []
     device = config.get(CONF_DEVICE)
     filename = config.get(CONF_FILENAME)
-    _LOGGER.debug("%s: %s; %s: %s", CONF_DEVICE, device, CONF_FILENAME, filename)
-    PyBecker.setup(hass, device=device, filename=filename)
+    queue_size = config.get(CONF_QUEUE_SIZE)
+    retry_max = config.get(CONF_COMMAND_RETRY_MAX)
+    retry_delay = config.get(CONF_COMMAND_RETRY_DELAY)
+    
+    _LOGGER.debug(
+        "%s: %s; %s: %s; %s: %d; %s: %d; %s: %.1f",
+        CONF_DEVICE, device,
+        CONF_FILENAME, filename,
+        CONF_QUEUE_SIZE, queue_size,
+        CONF_COMMAND_RETRY_MAX, retry_max,
+        CONF_COMMAND_RETRY_DELAY, retry_delay
+    )
+    
+    PyBecker.setup(
+        hass,
+        device=device,
+        filename=filename,
+        queue_size=queue_size,
+        retry_max=retry_max,
+        retry_delay=retry_delay
+    )
 
     for device, device_config in config[CONF_COVERS].items():
         friendly_name = device_config.get(CONF_FRIENDLY_NAME, device)
@@ -334,7 +369,18 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     async def async_open_cover(self, **kwargs):
         """Set the cover to the open position."""
         self._travel_to_position(OPEN_POSITION)
-        await self._becker.move_up(self._channel)
+        try:
+            await self._becker.move_up(self._channel)
+        except BeckerConnectionError as err:
+            _LOGGER.error(
+                "Failed to open cover '%s' (channel %s): %s. "
+                "The RF command may not have been sent.",
+                self._name, self._channel, err
+            )
+            # Mark position as unknown since command failed
+            self._tc.stop()
+            self._attr_current_cover_position = None
+            self.async_write_ha_state()
 
     async def async_open_cover_tilt(self, **kwargs):
         """Open the cover tilt."""
@@ -344,12 +390,34 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
             self._travel_to_position(self._intermediate_pos_up)
-            await self._becker.move_up_intermediate(self._channel)
+            try:
+                await self._becker.move_up_intermediate(self._channel)
+            except BeckerConnectionError as err:
+                _LOGGER.error(
+                    "Failed to open tilt for cover '%s' (channel %s): %s. "
+                    "The RF command may not have been sent.",
+                    self._name, self._channel, err
+                )
+                # Mark position as unknown since command failed
+                self._tc.stop()
+                self._attr_current_cover_position = None
+                self.async_write_ha_state()
 
     async def async_close_cover(self, **kwargs):
         """Set the cover to the closed position."""
         self._travel_to_position(CLOSED_POSITION)
-        await self._becker.move_down(self._channel)
+        try:
+            await self._becker.move_down(self._channel)
+        except BeckerConnectionError as err:
+            _LOGGER.error(
+                "Failed to close cover '%s' (channel %s): %s. "
+                "The RF command may not have been sent.",
+                self._name, self._channel, err
+            )
+            # Mark position as unknown since command failed
+            self._tc.stop()
+            self._attr_current_cover_position = None
+            self.async_write_ha_state()
 
     async def async_close_cover_tilt(self, **kwargs):
         """Close the cover tilt."""
@@ -359,12 +427,33 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._update_scheduled_stop_travel_callback(self._tilt_time_blind)
         if self._tilt_intermediate:
             self._travel_to_position(self._intermediate_pos_down)
-            await self._becker.move_down_intermediate(self._channel)
+            try:
+                await self._becker.move_down_intermediate(self._channel)
+            except BeckerConnectionError as err:
+                _LOGGER.error(
+                    "Failed to close tilt for cover '%s' (channel %s): %s. "
+                    "The RF command may not have been sent.",
+                    self._name, self._channel, err
+                )
+                # Mark position as unknown since command failed
+                self._tc.stop()
+                self._attr_current_cover_position = None
+                self.async_write_ha_state()
 
     async def async_stop_cover(self, **kwargs):
         """Set the cover to the stopped position."""
         self._travel_stop()
-        await self._becker.stop(self._channel)
+        try:
+            await self._becker.stop(self._channel)
+        except BeckerConnectionError as err:
+            _LOGGER.error(
+                "Failed to stop cover '%s' (channel %s): %s. "
+                "The RF command may not have been sent.",
+                self._name, self._channel, err
+            )
+            # Mark position as unknown since command failed
+            self._attr_current_cover_position = None
+            self.async_write_ha_state()
 
     async def async_set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
@@ -372,12 +461,23 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         if ATTR_POSITION in kwargs:
             pos = kwargs[ATTR_POSITION]
             travel_time = self._travel_to_position(pos)
-            if self._tc.is_closing():
-                await self._becker.move_down(self._channel)
-            elif self._tc.is_opening():
-                await self._becker.move_up(self._channel)
-            if 0 < pos < 100:
-                self._update_scheduled_stop_travel_callback(travel_time)
+            try:
+                if self._tc.is_closing():
+                    await self._becker.move_down(self._channel)
+                elif self._tc.is_opening():
+                    await self._becker.move_up(self._channel)
+                if 0 < pos < 100:
+                    self._update_scheduled_stop_travel_callback(travel_time)
+            except BeckerConnectionError as err:
+                _LOGGER.error(
+                    "Failed to set cover '%s' (channel %s) to position %d: %s. "
+                    "The RF command may not have been sent.",
+                    self._name, self._channel, pos, err
+                )
+                # Mark position as unknown since command failed
+                self._tc.stop()
+                self._attr_current_cover_position = None
+                self.async_write_ha_state()
 
     def _travel_to_position(self, position):
         """Start TravelCalculator and update ha-state."""
