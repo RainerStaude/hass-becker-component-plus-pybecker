@@ -273,33 +273,129 @@ You can also see these unit id's in the database.
 If you leave out the unit number, the unit number 1 will be used, so the USB stick uses 1737b as a unit id.
 I think that's all the magic behind the Becker protocol.
 
-# Troubleshooting
-If you have any trouble follow these steps:
-- Restart Home Assistant after you have plugged in the USB stick
-- Enable debug log for becker.  
-Add the following lines to your configuration.yaml to enable debug log:
+# Advanced Configuration Options
+
+## Queue and Retry Configuration
+
+If you control many covers simultaneously (>10 covers), you may need to adjust 
+the queue and retry settings to prevent commands from being skipped. These settings 
+help manage RF command transmission when many covers are operated at once.
+
+```yaml
+cover:
+  - platform: becker
+    device: "/dev/serial/by-id/..."
+    filename: "centronic-stick.db"
+    # OPTIONAL: Queue and retry configuration
+    queue_size: 200                  # Default: 100 - Maximum commands in queue
+    command_retry_max: 3             # Default: 3 - Maximum retry attempts
+    command_retry_delay: 1.0         # Default: 1.0 - Delay between retries (seconds)
+    covers:
+      # ... your covers ...
+```
+
+### Configuration Parameters
+
+**queue_size** (range: 10-1000, default: 100)
+- Maximum number of RF commands that can be queued
+- Each command takes 0.3 seconds to transmit over RF
+- Example: 100 commands = ~30 seconds of transmit time
+- Increase if you see "Queue full" warnings in logs
+- Recommended for large installations (>15 covers): 200-500
+
+**command_retry_max** (range: 0-10, default: 3)
+- Number of retry attempts if queue insertion fails
+- 0 = no retries (not recommended)
+- 3 = up to 3 retry attempts (recommended for most installations)
+- Higher values increase reliability but may delay error reporting
+
+**command_retry_delay** (range: 0.1-10.0 seconds, default: 1.0)
+- Delay between retry attempts
+- Lower values retry faster but may not give queue time to clear
+- Higher values are more patient but delay command execution
+- Recommended: 1.0-2.0 seconds for typical installations
+
+### Understanding the RF Command Queue
+
+The Becker integration uses a queue system to manage RF commands:
+
+1. **Commands are queued** when you call cover services (open, close, stop, set position)
+2. **One command at a time** is transmitted over RF with a 0.3 second delay between commands
+3. **Queue fills up** if commands are sent faster than they can be transmitted
+4. **Warnings appear** in logs when queue reaches 50% capacity
+5. **Commands may fail** if queue stays full for more than 5 seconds (timeout)
+6. **Automatic retries** occur up to `command_retry_max` times with `command_retry_delay` between attempts
+
+**Example timing for 10 covers:**
+- Without delays: All 10 commands queued instantly, transmitted sequentially in ~3 seconds
+- With 0.5s delays in automation: Commands spread over 5 seconds, better RF reliability
+- Queue usage depends on: how fast you send commands vs. how fast they're transmitted (0.3s each)
+
+## Troubleshooting Queue Issues
+
+### Enable Debug Logging
+
+If you experience issues with covers not responding or being skipped when controlling 
+multiple covers simultaneously, enable debug logging:
 
 ```yaml
 logger:
   default: info
   logs:
-    # This must correspond to the folder name of your /config/custom_components/becker folder
     custom_components.becker: debug
+    custom_components.becker.pybecker: debug
 ```
 
-You can also change the log configuration dynamically by calling the `logger.set_level` service. 
-This method allows you to enable debug logging only for a limited time:
+You can also change the log configuration dynamically by calling the `logger.set_level` service:
 
 ```yaml
 service: logger.set_level
 data:
   custom_components.becker: debug
+  custom_components.becker.pybecker: debug
 ```
+
+### Understanding Log Messages
+
+**Normal operation (queue < 50% full):**
+```
+DEBUG: Queueing RF command (queue: 5/100, 5% full)
+DEBUG: RF command successfully queued
+DEBUG: Sent packet: unit_id: 1737B, channel: 1, command: UP
+```
+
+**Warning level (queue 50-80% full):**
+```
+INFO: RF command queue is 55% full (55/100 commands waiting)
+```
+
+**Critical level (queue >80% full):**
+```
+WARNING: RF command queue is 85% full (85/100 commands waiting). 
+Commands are being sent faster than they can be transmitted (0.3s per command). 
+Consider adding delays between commands.
+```
+
+**Queue full with retry:**
+```
+WARNING: Queue full, retrying in 1.0s... (attempt 1/3, queue: 100/100)
+INFO: RF command successfully queued after 1 retry attempt(s)
+```
+
+**Critical error (all retries failed):**
+```
+ERROR: CRITICAL: RF command queue is FULL after 3 retry attempts (100 commands waiting).
+ERROR: Failed to open cover 'Kitchen' (channel 1): Queue full after 3 retries.
+```
+# Troubleshooting
+If you have any trouble follow these steps:
+- Restart Home Assistant after you have plugged in the USB stick
+- Enable debug log for becker (see "Enable Debug Logging" section above)
 
 All messages are logged to the home-assistant.log file in your config folder.  
 It is also helpful to find out the Remote ID of your Becker Remote. The message 
 will be something like below every time you press a key on your Remote:  
-`... DEBUG ... \[custom_components.becker.pybecker.becker_helper]` Received packet: 
+`... DEBUG ... [custom_components.becker.pybecker.becker_helper]` Received packet: 
 unit_id: `12345`, channel: `2`, command: HALT, argument: 0, packet: ...
 
 In case of any errors related to the Becker integration try to fix them.  
