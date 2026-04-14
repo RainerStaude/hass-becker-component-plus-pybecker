@@ -165,7 +165,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
         covers.append(
             BeckerEntity(
-                PyBecker.becker, friendly_name, channel,
+                PyBecker.becker, device, friendly_name, channel,
                 state_template, remote_id, travel_time_down, travel_time_up,
                 intermediate_pos_up, intermediate_pos_down, intermediate_position,
                 tilt_intermediate, tilt_blind, tilt_time_blind,
@@ -179,13 +179,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     """Representation of a Becker cover entity."""
 
     def __init__(
-        self, becker, name, channel,
+        self, becker, entity_id, name, channel,
         state_template, remote_id, travel_time_down, travel_time_up,
         intermediate_pos_up, intermediate_pos_down, intermediate_position,
         tilt_intermediate, tilt_blind, tilt_time_blind,
     ):
         """Init the Becker entity."""
         self._becker = becker
+        self.entity_id = f"cover.{entity_id}"
         self._name = name
         self._attr = dict()
         self._channel = channel
