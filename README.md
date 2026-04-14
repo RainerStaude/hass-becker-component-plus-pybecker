@@ -36,6 +36,7 @@ cover:
   - platform: becker
     covers:
       # Use unique names for each cover like kitchen, bedroom or living_room
+      # This will define the entity_id in HA (e.g. cover.kitchen)
       kitchen:
         friendly_name: "Kitchen Cover"
         # Becker Centronic USB stick provides up to five units (1-5) with up to seven (1-7) channels
