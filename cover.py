@@ -278,8 +278,8 @@ class BeckerEntity(CoverEntity, RestoreEntity):
 
     @property
     def unique_id(self):
-        """Return the unique id of the device - the channel."""
-        return self._channel
+        """Return the unique id of the device reflecting the channel and entity_id."""
+        return f"becker_cover_{self._channel}_{self.entity_id}"
 
     @property
     def current_cover_position(self):
