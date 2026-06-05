@@ -133,3 +133,35 @@ def mock_config_entry_with_cover() -> MockConfigEntry:
             }
         ],
     )
+
+
+@pytest.fixture
+def mock_config_entry_with_timed_cover() -> MockConfigEntry:
+    """Return a config entry with one cover that has travel times.
+
+    Travel times enable position control (the SET_POSITION feature), which
+    is what drives the live position updates during travel.
+    """
+    return MockConfigEntry(
+        title="Becker (ttyUSB0)",
+        domain=DOMAIN,
+        data={
+            CONF_CONNECTION_TYPE: CONNECTION_TYPE_SERIAL,
+            CONF_DEVICE: TEST_DEVICE,
+            CONF_FILENAME: DEFAULT_DB_FILENAME,
+        },
+        unique_id=TEST_DEVICE,
+        subentries_data=[
+            {
+                "subentry_type": SUBENTRY_TYPE_COVER,
+                "title": "Kitchen",
+                "unique_id": "1",
+                "data": {
+                    CONF_CHANNEL: "1",
+                    "friendly_name": "Kitchen",
+                    "travelling_time_down": 10.0,
+                    "travelling_time_up": 10.0,
+                },
+            }
+        ],
+    )

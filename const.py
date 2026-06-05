@@ -58,6 +58,9 @@ OPEN_POSITION = 100
 TILT_TIME = 0.3
 TILT_RECEIVE_TIMEOUT = 1.0
 
+# Interval (seconds) for refreshing the reported position while travelling
+POSITION_UPDATE_INTERVAL = 1
+
 COMMANDS = {
     'halt': f'{COMMAND_HALT:02x}'.encode(),
     'up': f'{COMMAND_UP:02x}'.encode(),

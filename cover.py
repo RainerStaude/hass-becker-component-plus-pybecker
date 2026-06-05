@@ -53,6 +53,7 @@ from .const import (
     INTERMEDIATE_POSITION,
     MANUFACTURER,
     OPEN_POSITION,
+    POSITION_UPDATE_INTERVAL,
     REMOTE_ID,
     SUBENTRY_TYPE_COVER,
     TEMPLATE_UNKNOWN_STATES,
@@ -398,7 +399,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 self.name, self.current_cover_position, position, travel_time,
             )
             self._tc.start_travel(100 - position)
-            self._update_scheduled_ha_state_callback(travel_time)
+            # Refresh the position periodically during travel instead of only
+            # once at the end, so the percentage updates live.
+            delay = POSITION_UPDATE_INTERVAL if travel_time > 0 else 0
+            self._update_scheduled_ha_state_callback(delay)
         return travel_time
 
     def _travel_stop(self):
@@ -418,7 +422,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """  # noqa: D205, D212
         # unsubscribe outdated pending callbacks
         self._callbacks.pop('update_ha', lambda: None)()
-        # Schedule callback to update ha-state at end of travel
+        # Update now and, while travelling, schedule the next refresh
         if delay is not None:
             # Update ha-state immediately
             _LOGGER.debug("%s update ha-state now", self._name)
@@ -487,8 +491,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
 
     @callback
     async def _async_update_ha_state(self, _):
-        """Update HA-State while travelling."""
-        self._update_scheduled_ha_state_callback(0)
+        """Update HA-State while travelling.
+
+        Re-schedule another refresh while the cover is still moving so the
+        position keeps updating; the TravelCalculator reports the target
+        once the travel time has elapsed, which ends the loop.
+        """
+        delay = POSITION_UPDATE_INTERVAL if self._tc.is_traveling() else 0
+        self._update_scheduled_ha_state_callback(delay)
 
     @callback
     async def _async_on_template_update(self, _, updates):
