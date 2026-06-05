@@ -9,6 +9,7 @@ from homeassistant.components.cover import (
     ATTR_CURRENT_POSITION,
     ATTR_POSITION,
     PLATFORM_SCHEMA,
+    CoverDeviceClass,
     CoverEntity,
     CoverEntityFeature,
 )
@@ -20,7 +21,6 @@ from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_VALUE_TEMPLATE,
 )
-from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -48,7 +48,6 @@ from .const import (
     CONF_TILT_TIME_BLIND,
     CONF_TRAVELLING_TIME_DOWN,
     CONF_TRAVELLING_TIME_UP,
-    DEVICE_CLASS,
     DOMAIN,
     INTERMEDIATE_POSITION,
     MANUFACTURER,
@@ -179,6 +178,11 @@ def _create_entity(hass, becker, entry_id, signal, config):
 class BeckerEntity(CoverEntity, RestoreEntity):
     """Representation of a Becker cover entity."""
 
+    _attr_has_entity_name = True
+    _attr_name = None
+    _attr_should_poll = False
+    _attr_device_class = CoverDeviceClass.SHUTTER
+
     def __init__(
         self, becker, name, channel, entry_id, signal,
         state_template, remote_id, travel_time_down, travel_time_up,
@@ -191,6 +195,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         self._signal = signal
         self._attr = dict()
         self._channel = channel
+        self._attr_unique_id = channel
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry_id}_{channel}")},
             name=name,
@@ -244,6 +249,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._remode_ids.update([id1.encode(), id2.encode()])
         if len(self._remode_ids) > 0:
             self._attr[CONF_REMOTE_ID] = b", ".join(self._remode_ids).decode()
+        self._attr_supported_features = self._cover_features
 
     async def async_added_to_hass(self):
         """Register callbacks."""
@@ -279,30 +285,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._callbacks[callback]()
 
     @property
-    def name(self):
-        """Return the name of the device as reported by tellcore."""
-        return self._name
-
-    @property
-    def unique_id(self):
-        """Return the unique id of the device - the channel."""
-        return self._channel
-
-    @property
     def current_cover_position(self):
         """Return current position of cover. None is unknown, 0 is closed, 100 is fully open."""
         # In TravelCalculator 0 is open, 100 is closed.
         return 100 - self._tc.current_position()
-
-    @property
-    def device_class(self):
-        """Return the class of this device, from component DEVICE_CLASSES."""
-        return DEVICE_CLASS
-
-    @property
-    def supported_features(self):
-        """Flag supported features."""
-        return self._cover_features
 
     @property
     def is_closed(self):
@@ -330,14 +316,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """Return the device state attributes."""
         self._attr[ATTR_POSITION] = self.current_cover_position
         return self._attr
-
-    @property
-    def should_poll(self):
-        """Return if the cover should poll"""
-        # by default this is set to True, therefore all cover entities
-        # would be updated regulary. This disables the automatic update, but we
-        # have to notify hass whenever something changes.
-        return False
 
     async def async_open_cover(self, **kwargs):
         """Set the cover to the open position."""
@@ -457,7 +435,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                     self.hass, delay, self._async_stop_travel
                 )
 
-    @callback
     async def _async_message_received(self, packet):
         """Handle received packets."""
         ids = packet.group('unit_id') + packet.group('channel')
@@ -483,13 +460,11 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 self._travel_to_position(CLOSED_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
 
-    @callback
     async def _async_stop_travel(self, _):
         """Stop the cover callack."""
         self._travel_stop()
         await self._becker.stop(self._channel)
 
-    @callback
     async def _async_update_ha_state(self, _):
         """Update HA-State while travelling.
 
@@ -500,7 +475,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         delay = POSITION_UPDATE_INTERVAL if self._tc.is_traveling() else 0
         self._update_scheduled_ha_state_callback(delay)
 
-    @callback
     async def _async_on_template_update(self, _, updates):
         """Update position on template update"""
         result = updates.pop().result
@@ -516,7 +490,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 result = result.lower()
             if result in TEMPLATE_VALID_OPEN:
                 pos = OPEN_POSITION
-            elif TEMPLATE_VALID_CLOSE:
+            elif result in TEMPLATE_VALID_CLOSE:
                 pos = CLOSED_POSITION
             elif isinstance(result, int) or isinstance(result, float):
                 # Clip position to a range of 0 - 100

@@ -57,3 +57,16 @@ async def test_position_updates_during_travel(
 
     # Over a 10 s travel, each 1 s tick should report a higher position.
     assert positions == [10, 20, 30, 40, 50]
+
+
+@pytest.mark.usefixtures("mock_becker")
+async def test_numeric_value_template_sets_position(
+    hass: HomeAssistant,
+    mock_config_entry_with_template_cover: MockConfigEntry,
+) -> None:
+    """A numeric value template sets the exact position, not just open/closed."""
+    hass.states.async_set("sensor.becker_pos", "42")
+    await setup_integration(hass, mock_config_entry_with_template_cover)
+    await hass.async_block_till_done()
+
+    assert hass.states.get(ENTITY_ID).attributes[ATTR_CURRENT_POSITION] == 42
