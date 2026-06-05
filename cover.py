@@ -242,13 +242,13 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Setup Remote IDs
         if remote_id is None:
             remote_id = ""
-        self._remode_ids = set()
+        self._remote_ids = set()
         for i in REMOTE_ID.finditer(remote_id):
             id1 = i['id'].upper() + i['ch'].upper() # Configured channel
             id2 = i['id'].upper() + 'F'             # ALL channels of Multi-Channel-Remote
-            self._remode_ids.update([id1.encode(), id2.encode()])
-        if len(self._remode_ids) > 0:
-            self._attr[CONF_REMOTE_ID] = b", ".join(self._remode_ids).decode()
+            self._remote_ids.update([id1.encode(), id2.encode()])
+        if len(self._remote_ids) > 0:
+            self._attr[CONF_REMOTE_ID] = b", ".join(self._remote_ids).decode()
         self._attr_supported_features = self._cover_features
 
     async def async_added_to_hass(self):
@@ -438,7 +438,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
     async def _async_message_received(self, packet):
         """Handle received packets."""
         ids = packet.group('unit_id') + packet.group('channel')
-        if ids in self._remode_ids:
+        if ids in self._remote_ids:
             _LOGGER.debug("%s received a packet from dispatcher", self._name)
             command = packet.group('command') + b'0'
             cmd_arg = packet.group('command') + packet.group('argument')
