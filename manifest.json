@@ -3,7 +3,7 @@
   "name": "Becker",
   "documentation": "",
   "version": "0.3.7",
-  "requirements": [],
+  "requirements": ["pyserial==3.5"],
   "dependencies": [],
   "codeowners": ["@nicolasberthel", "@RainerStaude"]
 }
