@@ -30,7 +30,23 @@ There are three ways to track position of the cover:
 4. Reboot Home Assistant
 
 # Configuration
-## Basic configuration
+## Configuration via the UI (recommended)
+Since version 0.4.0 the integration is set up in the Home Assistant UI:
+
+1. Go to **Settings** → **Devices & services** → **Add integration** and search for **Becker**.
+2. Choose the connection type:
+   - **Serial port (USB stick)**: select the serial port of the Centronic USB stick.
+   - **Network (serial-to-TCP bridge)**: enter host and port of your bridge (for example ser2net, default port 5000).
+3. Add your covers to the created entry with **Add cover**. Each cover can be
+   reconfigured later (name, travel times, tilt, remote IDs, position template)
+   without removing it.
+
+An existing YAML configuration (see below) is imported automatically on the
+next restart. After the import, remove the `becker` cover platform from your
+`configuration.yaml` - a repair issue will remind you. YAML configuration is
+deprecated and will be removed in a future release.
+
+## Basic configuration (YAML, deprecated)
 ```yaml
 cover:
   - platform: becker

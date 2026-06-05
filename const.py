@@ -2,8 +2,9 @@
 
 import re
 
-from homeassistant.const import STATE_CLOSED, STATE_OPEN
+from homeassistant.const import STATE_CLOSED, STATE_OPEN, Platform
 
+from .pybecker.becker_helper import DEFAULT_DEVICE_NAME
 from .pybecker.becker import (
     COMMAND_DOWN,
     COMMAND_DOWN5,
@@ -19,8 +20,20 @@ MANUFACTURER = "Becker"
 DEVICE = "device"
 DEVICE_CLASS = "shutter"
 
+PLATFORMS = [Platform.COVER]
+
 RECEIVE_MESSAGE = "receive_message"
 REMOTE_PACKET_EVENT = "remote_packet_received"
+
+# Config flow
+CONF_CONNECTION_TYPE = "connection_type"
+CONNECTION_TYPE_SERIAL = "serial"
+CONNECTION_TYPE_NETWORK = "network"
+DEFAULT_DEVICE = DEFAULT_DEVICE_NAME
+DEFAULT_TCP_PORT = 5000
+DEFAULT_DB_FILENAME = "centronic-stick.db"
+SUBENTRY_TYPE_COVER = "cover"
+CHANNEL_PATTERN = re.compile(r"^(?:[1-7]|[1-5]:[1-7])$")
 
 CONF_CHANNEL = "channel"
 CONF_COVERS = "covers"

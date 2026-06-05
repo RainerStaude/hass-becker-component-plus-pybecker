@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Becker Centronic stick",
+        "description": "Select how Home Assistant connects to your Centronic USB stick.",
+        "menu_options": {
+          "serial": "Serial port (USB stick)",
+          "network": "Network (serial-to-TCP bridge)"
+        }
+      },
+      "serial": {
+        "title": "Serial connection",
+        "data": {
+          "device": "Serial port",
+          "filename": "Database file"
+        },
+        "data_description": {
+          "device": "Path to the Centronic USB stick.",
+          "filename": "SQLite file storing the stick's pairing data. Keep the default unless you migrate an existing file."
+        }
+      },
+      "network": {
+        "title": "Network connection",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "filename": "Database file"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the serial-to-TCP bridge (for example ser2net).",
+          "port": "TCP port of the bridge.",
+          "filename": "SQLite file storing the stick's pairing data. Keep the default unless you migrate an existing file."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Becker Centronic stick."
+    },
+    "abort": {
+      "already_configured": "This Becker Centronic stick is already configured."
+    }
+  },
+  "config_subentries": {
+    "cover": {
+      "entry_type": "Cover",
+      "initiate_flow": {
+        "user": "Add cover"
+      },
+      "step": {
+        "user": {
+          "title": "Add Becker cover",
+          "data": {
+            "channel": "Channel",
+            "friendly_name": "Name",
+            "value_template": "Position template",
+            "remote_id": "Remote ID(s)",
+            "travelling_time_down": "Travel time down",
+            "travelling_time_up": "Travel time up",
+            "intermediate_position": "Enable intermediate positions",
+            "intermediate_position_up": "Intermediate position up",
+            "intermediate_position_down": "Intermediate position down",
+            "tilt_intermediate": "Tilt moves to intermediate position",
+            "tilt_blind": "Tilt as venetian blind",
+            "tilt_time_blind": "Blind tilt time"
+          },
+          "data_description": {
+            "channel": "Channel the cover is paired to: 1-7, or unit:channel (for example 2:1) when using a sender unit other than 1.",
+            "value_template": "Optional template that reports the cover position from another entity.",
+            "remote_id": "Optional hand-held remote IDs to follow, formatted as ID:channel (for example 12345:2). Separate multiple remotes with commas.",
+            "travelling_time_down": "Seconds the cover needs to travel from open to closed. Enables position control.",
+            "travelling_time_up": "Seconds the cover needs to travel from closed to open. Enables position control."
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure cover on channel {channel}",
+          "data": {
+            "friendly_name": "Name",
+            "value_template": "Position template",
+            "remote_id": "Remote ID(s)",
+            "travelling_time_down": "Travel time down",
+            "travelling_time_up": "Travel time up",
+            "intermediate_position": "Enable intermediate positions",
+            "intermediate_position_up": "Intermediate position up",
+            "intermediate_position_down": "Intermediate position down",
+            "tilt_intermediate": "Tilt moves to intermediate position",
+            "tilt_blind": "Tilt as venetian blind",
+            "tilt_time_blind": "Blind tilt time"
+          },
+          "data_description": {
+            "value_template": "Optional template that reports the cover position from another entity.",
+            "remote_id": "Optional hand-held remote IDs to follow, formatted as ID:channel (for example 12345:2). Separate multiple remotes with commas.",
+            "travelling_time_down": "Seconds the cover needs to travel from open to closed. Enables position control.",
+            "travelling_time_up": "Seconds the cover needs to travel from closed to open. Enables position control."
+          }
+        }
+      },
+      "error": {
+        "invalid_channel": "Channel must be 1-7 or unit:channel (for example 2:1).",
+        "invalid_remote_id": "Remote ID must be formatted as ID:channel (for example 12345:2).",
+        "already_configured": "A cover with this channel is already configured."
+      },
+      "abort": {
+        "reconfigure_successful": "Cover updated."
+      }
+    }
+  }
+}

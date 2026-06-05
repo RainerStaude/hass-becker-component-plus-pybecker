@@ -12,6 +12,7 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
 )
+from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import (
     CONF_COVERS,
     CONF_DEVICE,
@@ -22,6 +23,7 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import (
     TrackTemplate,
     async_call_later,
@@ -29,7 +31,9 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.template import Template
 
+from . import signal_for_entry
 from .const import (
     CLOSED_POSITION,
     COMMANDS,
@@ -47,9 +51,10 @@ from .const import (
     DEVICE_CLASS,
     DOMAIN,
     INTERMEDIATE_POSITION,
+    MANUFACTURER,
     OPEN_POSITION,
-    RECEIVE_MESSAGE,
     REMOTE_ID,
+    SUBENTRY_TYPE_COVER,
     TEMPLATE_UNKNOWN_STATES,
     TEMPLATE_VALID_CLOSE,
     TEMPLATE_VALID_OPEN,
@@ -58,7 +63,6 @@ from .const import (
     TILT_TIME,
     VENTILATION_POSITION,
 )
-from .rf_device import PyBecker
 from .travelcalculator import TravelCalculator
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,93 +97,89 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the becker platform."""
-    covers = []
-    device = config.get(CONF_DEVICE)
-    filename = config.get(CONF_FILENAME)
-    _LOGGER.debug("%s: %s; %s: %s", CONF_DEVICE, device, CONF_FILENAME, filename)
-    PyBecker.setup(hass, device=device, filename=filename)
+    """Import the YAML becker platform configuration into a config entry."""
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data=config
+        )
+    )
 
-    for device, device_config in config[CONF_COVERS].items():
-        friendly_name = device_config.get(CONF_FRIENDLY_NAME, device)
-        channel = device_config.get(CONF_CHANNEL)
-        state_template = device_config.get(CONF_VALUE_TEMPLATE)
-        remote_id = device_config.get(CONF_REMOTE_ID)
-        travel_time_down = device_config.get(CONF_TRAVELLING_TIME_DOWN)
-        travel_time_up = device_config.get(CONF_TRAVELLING_TIME_UP)
-        # Warning if both template and travelling time are set
-        if (travel_time_down or travel_time_up) is not None and state_template is not None:
-            _LOGGER.warning('Both "%s" and "%s" are configured for cover %s. "%s" might influence with "%s"!',
-                CONF_VALUE_TEMPLATE,
-                CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
-                friendly_name,
-                CONF_VALUE_TEMPLATE,
-                CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
-            )
-        # intermediate settings
-        intermediate_disable = device_config.get(CONF_INTERMEDIATE_DISABLE)
-        if intermediate_disable is not None:
-            _LOGGER.error(
-                "%s is no longer supported for cover %s. Please remove from your configuration.yaml and replace by %s: %s",
-                CONF_INTERMEDIATE_DISABLE,
-                friendly_name,
-                CONF_TILT_INTERMEDIATE,
-                not intermediate_disable,
-            )
-        else:
-            intermediate_disable = False
-        intermediate_position = device_config.get(CONF_INTERMEDIATE_POSITION) and not intermediate_disable
-        intermediate_pos_up = device_config.get(CONF_INTERMEDIATE_POSITION_UP)
-        intermediate_pos_down = device_config.get(CONF_INTERMEDIATE_POSITION_DOWN)
-        # tilt settings
-        tilt_intermediate = device_config.get(CONF_TILT_INTERMEDIATE)
-        tilt_blind = device_config.get(CONF_TILT_BLIND)
-        if tilt_intermediate is None:
-            tilt_intermediate = intermediate_position and not tilt_blind
-        if tilt_intermediate and not intermediate_position:
-            _LOGGER.error(
-                '%s is enabled for cover %s, but %s is deactivated. Will deactivate %s.',
-                CONF_TILT_INTERMEDIATE,
-                friendly_name,
-                CONF_INTERMEDIATE_POSITION,
-                CONF_TILT_INTERMEDIATE,
-            )
-            tilt_intermediate = False
-        if tilt_intermediate and tilt_blind:
-            _LOGGER.error(
-                'Both, %s and %s are enabled for cover %s. Will use %s and deactivate %s.',
-                CONF_TILT_INTERMEDIATE,
-                CONF_TILT_BLIND,
-                friendly_name,
-                CONF_TILT_BLIND,
-                CONF_TILT_INTERMEDIATE,
-            )
-            tilt_intermediate = False
-        tilt_time_blind = device_config.get(CONF_TILT_TIME_BLIND)
 
-        if channel is None:
-            _LOGGER.error("Must specify %s", CONF_CHANNEL)
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the becker covers of a config entry."""
+    becker = entry.runtime_data
+    signal = signal_for_entry(entry.entry_id)
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_COVER:
             continue
-        # Initialize all missing units in the db file and send stop command for sync
-        await PyBecker.becker.init_unconfigured_unit(channel, name=friendly_name)
-
-        covers.append(
-            BeckerEntity(
-                PyBecker.becker, friendly_name, channel,
-                state_template, remote_id, travel_time_down, travel_time_up,
-                intermediate_pos_up, intermediate_pos_down, intermediate_position,
-                tilt_intermediate, tilt_blind, tilt_time_blind,
-            )
+        async_add_entities(
+            [_create_entity(hass, becker, entry.entry_id, signal, subentry.data)],
+            config_subentry_id=subentry_id,
         )
 
-    async_add_entities(covers)
+
+def _create_entity(hass, becker, entry_id, signal, config):
+    """Create a BeckerEntity from subentry data, normalizing the settings."""
+    channel = config[CONF_CHANNEL]
+    friendly_name = config.get(CONF_FRIENDLY_NAME) or f"Channel {channel}"
+    state_template = config.get(CONF_VALUE_TEMPLATE)
+    if state_template is not None:
+        state_template = Template(state_template, hass)
+    remote_id = config.get(CONF_REMOTE_ID)
+    travel_time_down = config.get(CONF_TRAVELLING_TIME_DOWN)
+    travel_time_up = config.get(CONF_TRAVELLING_TIME_UP)
+    # Warning if both template and travelling time are set
+    if (travel_time_down or travel_time_up) is not None and state_template is not None:
+        _LOGGER.warning('Both "%s" and "%s" are configured for cover %s. "%s" might influence with "%s"!',
+            CONF_VALUE_TEMPLATE,
+            CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
+            friendly_name,
+            CONF_VALUE_TEMPLATE,
+            CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
+        )
+    # intermediate settings
+    intermediate_position = config.get(CONF_INTERMEDIATE_POSITION, True)
+    intermediate_pos_up = int(config.get(CONF_INTERMEDIATE_POSITION_UP, VENTILATION_POSITION))
+    intermediate_pos_down = int(config.get(CONF_INTERMEDIATE_POSITION_DOWN, INTERMEDIATE_POSITION))
+    # tilt settings
+    tilt_intermediate = config.get(CONF_TILT_INTERMEDIATE)
+    tilt_blind = config.get(CONF_TILT_BLIND, False)
+    if tilt_intermediate is None:
+        tilt_intermediate = intermediate_position and not tilt_blind
+    if tilt_intermediate and not intermediate_position:
+        _LOGGER.error(
+            '%s is enabled for cover %s, but %s is deactivated. Will deactivate %s.',
+            CONF_TILT_INTERMEDIATE,
+            friendly_name,
+            CONF_INTERMEDIATE_POSITION,
+            CONF_TILT_INTERMEDIATE,
+        )
+        tilt_intermediate = False
+    if tilt_intermediate and tilt_blind:
+        _LOGGER.error(
+            'Both, %s and %s are enabled for cover %s. Will use %s and deactivate %s.',
+            CONF_TILT_INTERMEDIATE,
+            CONF_TILT_BLIND,
+            friendly_name,
+            CONF_TILT_BLIND,
+            CONF_TILT_INTERMEDIATE,
+        )
+        tilt_intermediate = False
+    tilt_time_blind = config.get(CONF_TILT_TIME_BLIND, TILT_TIME)
+
+    return BeckerEntity(
+        becker, friendly_name, channel, entry_id, signal,
+        state_template, remote_id, travel_time_down, travel_time_up,
+        intermediate_pos_up, intermediate_pos_down, intermediate_position,
+        tilt_intermediate, tilt_blind, tilt_time_blind,
+    )
 
 
 class BeckerEntity(CoverEntity, RestoreEntity):
     """Representation of a Becker cover entity."""
 
     def __init__(
-        self, becker, name, channel,
+        self, becker, name, channel, entry_id, signal,
         state_template, remote_id, travel_time_down, travel_time_up,
         intermediate_pos_up, intermediate_pos_down, intermediate_position,
         tilt_intermediate, tilt_blind, tilt_time_blind,
@@ -187,8 +187,15 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """Init the Becker entity."""
         self._becker = becker
         self._name = name
+        self._signal = signal
         self._attr = dict()
         self._channel = channel
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_{channel}")},
+            name=name,
+            manufacturer=MANUFACTURER,
+            via_device=(DOMAIN, entry_id),
+        )
         self._attr[CONF_CHANNEL] = str(channel)
         self._cover_features = COVER_FEATURES
         # Template
@@ -252,7 +259,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._tc.set_position(100 - CLOSED_POSITION)
         # Setup callback on received packets
         receive = async_dispatcher_connect(
-            self.hass, f"{DOMAIN}.{RECEIVE_MESSAGE}", self._async_message_received
+            self.hass, self._signal, self._async_message_received
         )
         self.async_on_remove(receive)
         # Setup callback on template changes
