@@ -20,7 +20,7 @@ MANUFACTURER = "Becker"
 DEVICE = "device"
 DEVICE_CLASS = "shutter"
 
-PLATFORMS = [Platform.COVER]
+PLATFORMS = [Platform.BUTTON, Platform.COVER]
 
 RECEIVE_MESSAGE = "receive_message"
 REMOTE_PACKET_EVENT = "remote_packet_received"
@@ -34,6 +34,7 @@ DEFAULT_TCP_PORT = 5000
 DEFAULT_DB_FILENAME = "centronic-stick.db"
 SUBENTRY_TYPE_COVER = "cover"
 CHANNEL_PATTERN = re.compile(r"^(?:[1-7]|[1-5]:[1-7])$")
+CONF_PAIR = "pair"
 
 CONF_CHANNEL = "channel"
 CONF_COVERS = "covers"

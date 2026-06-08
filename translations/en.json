@@ -93,6 +93,13 @@
             "travelling_time_down": "Seconds the cover needs to travel from open to closed. Enables position control.",
             "travelling_time_up": "Seconds the cover needs to travel from closed to open. Enables position control."
           }
+        },
+        "pair": {
+          "title": "Pair the cover",
+          "description": "Put the receiver for channel {channel} into learn mode (consult its manual – often a button on the motor or a master remote), then submit to send the pairing signal. You can also skip this and pair later with the cover's Pair button.",
+          "data": {
+            "pair": "Send pairing signal now"
+          }
         }
       },
       "error": {
@@ -102,6 +109,13 @@
       },
       "abort": {
         "reconfigure_successful": "Cover updated."
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "pair": {
+        "name": "Pair"
       }
     }
   }

@@ -16,6 +16,7 @@ from custom_components.becker.const import (
     CONF_CONNECTION_TYPE,
     CONF_INTERMEDIATE_DISABLE,
     CONF_INTERMEDIATE_POSITION,
+    CONF_PAIR,
     CONF_REMOTE_ID,
     CONF_TRAVELLING_TIME_DOWN,
     CONF_TRAVELLING_TIME_UP,
@@ -245,6 +246,13 @@ async def test_subentry_add_cover(
             "tilt_time_blind": 0.3,
         },
     )
+    # A pairing step follows the cover details.
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "pair"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_PAIR: False}
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     await hass.async_block_till_done()
 
@@ -253,6 +261,61 @@ async def test_subentry_add_cover(
     assert subentry.unique_id == "2:1"
     assert subentry.title == "Living room"
     assert subentry.data[CONF_REMOTE_ID] == "12345:2"
+    # The pairing toggle is not persisted as cover data.
+    assert CONF_PAIR not in subentry.data
+
+
+@pytest.mark.usefixtures("mock_config_entry")
+async def test_subentry_add_cover_pairs_on_request(
+    hass: HomeAssistant,
+    mock_becker: MagicMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Enabling the pairing toggle sends a TRAIN signal on the new channel."""
+    await setup_integration(hass, mock_config_entry)
+
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_COVER),
+        context={"source": SOURCE_USER},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_CHANNEL: "3"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "pair"
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_PAIR: True}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    mock_becker.pair.assert_awaited_once_with("3")
+
+
+@pytest.mark.usefixtures("mock_config_entry")
+async def test_subentry_add_cover_skips_pairing(
+    hass: HomeAssistant,
+    mock_becker: MagicMock,
+    mock_config_entry: MockConfigEntry,
+) -> None:
+    """Leaving the pairing toggle off creates the cover without pairing."""
+    await setup_integration(hass, mock_config_entry)
+
+    result = await hass.config_entries.subentries.async_init(
+        (mock_config_entry.entry_id, SUBENTRY_TYPE_COVER),
+        context={"source": SOURCE_USER},
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_CHANNEL: "3"}
+    )
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {CONF_PAIR: False}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    await hass.async_block_till_done()
+
+    mock_becker.pair.assert_not_awaited()
 
 
 @pytest.mark.usefixtures("mock_becker")

@@ -40,6 +40,10 @@ Since version 0.4.0 the integration is set up in the Home Assistant UI:
 3. Add your covers to the created entry with **Add cover**. Each cover can be
    reconfigured later (name, travel times, tilt, remote IDs, position template)
    without removing it.
+4. While adding a cover you can pair it straight away: put the shutter receiver
+   into learn mode, then leave **Send pairing signal now** enabled. You can also
+   pair (or re-pair) any time later with the **Pair** button on the cover's
+   device page - no need for the `becker.pair` service.
 
 An existing YAML configuration (see below) is imported automatically on the
 next restart. After the import, remove the `becker` cover platform from your

@@ -7,6 +7,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
@@ -41,6 +42,7 @@ from .const import (
     CONF_INTERMEDIATE_POSITION,
     CONF_INTERMEDIATE_POSITION_DOWN,
     CONF_INTERMEDIATE_POSITION_UP,
+    CONF_PAIR,
     CONF_REMOTE_ID,
     CONF_TILT_BLIND,
     CONF_TILT_INTERMEDIATE,
@@ -106,6 +108,10 @@ COVER_OPTIONS_SCHEMA = vol.Schema(
 COVER_ADD_SCHEMA = vol.Schema(
     {vol.Required(CONF_CHANNEL): TextSelector()}
 ).extend(COVER_OPTIONS_SCHEMA.schema)
+
+PAIR_SCHEMA = vol.Schema(
+    {vol.Required(CONF_PAIR, default=True): BooleanSelector()}
+)
 
 
 def _test_connection(device: str) -> None:
@@ -340,6 +346,10 @@ class BeckerConfigFlow(ConfigFlow, domain=DOMAIN):
 class CoverSubentryFlowHandler(ConfigSubentryFlow):
     """Handle adding and reconfiguring covers."""
 
+    def __init__(self) -> None:
+        """Init the cover subentry flow."""
+        self._cover_input: dict[str, Any] = {}
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
@@ -355,12 +365,8 @@ class CoverSubentryFlowHandler(ConfigSubentryFlow):
                         errors[CONF_CHANNEL] = "already_configured"
                         break
             if not errors:
-                return self.async_create_entry(
-                    title=user_input.get(CONF_FRIENDLY_NAME)
-                    or f"Channel {channel}",
-                    data=user_input,
-                    unique_id=channel,
-                )
+                self._cover_input = user_input
+                return await self.async_step_pair()
 
         return self.async_show_form(
             step_id="user",
@@ -368,6 +374,29 @@ class CoverSubentryFlowHandler(ConfigSubentryFlow):
                 COVER_ADD_SCHEMA, user_input
             ),
             errors=errors,
+        )
+
+    async def async_step_pair(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        """Optionally pair the receiver before creating the cover."""
+        channel = self._cover_input[CONF_CHANNEL]
+
+        if user_input is not None:
+            entry = self._get_entry()
+            if user_input[CONF_PAIR] and entry.state is ConfigEntryState.LOADED:
+                await entry.runtime_data.pair(channel)
+            return self.async_create_entry(
+                title=self._cover_input.get(CONF_FRIENDLY_NAME)
+                or f"Channel {channel}",
+                data=self._cover_input,
+                unique_id=channel,
+            )
+
+        return self.async_show_form(
+            step_id="pair",
+            data_schema=PAIR_SCHEMA,
+            description_placeholders={CONF_CHANNEL: channel},
         )
 
     async def async_step_reconfigure(

@@ -24,6 +24,7 @@ PACKAGE = ROOT / "custom_components" / "becker"
 
 COPIED = [
     "__init__.py",
+    "button.py",
     "config_flow.py",
     "const.py",
     "cover.py",
@@ -91,6 +92,7 @@ def mock_becker() -> Generator[MagicMock]:
     with patch("custom_components.becker.Becker", autospec=True) as becker_class:
         becker = becker_class.return_value
         becker.init_unconfigured_unit = AsyncMock()
+        becker.pair = AsyncMock()
         yield becker
 
 
