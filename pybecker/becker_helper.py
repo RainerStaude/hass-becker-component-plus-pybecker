@@ -125,10 +125,13 @@ class BeckerConnection():
         self._open()
         try:
             self._connection.write(packet)
-        except serial.SerialException:
-            # Re-connect on error (also for serial devices, e.g. after unplug/replug)
+        except Exception:
+            # Re-connect on error (covers SerialException and raw OSError on unplug)
             _LOGGER.debug("Write failed. Try to close and re-open connection to %s", self.device)
-            self._connection.close()
+            try:
+                self._connection.close()
+            except Exception:
+                pass
             self._open()
             self._connection.write(packet)
 
@@ -138,10 +141,13 @@ class BeckerConnection():
         self._open()
         try:
             packet = self._connection.read(1024)
-        except serial.SerialException:
-            # Re-connect on error (also for serial devices, e.g. after unplug/replug)
+        except Exception:
+            # Re-connect on error (covers SerialException and raw OSError on unplug)
             _LOGGER.debug("Read failed. Try to close and re-open connection to %s", self.device)
-            self._connection.close()
+            try:
+                self._connection.close()
+            except Exception:
+                pass
         return packet
 
     def _open(self) -> None:
@@ -156,8 +162,8 @@ class BeckerConnection():
                     )
                 else:
                     _LOGGER.error("Establish connection to %s failed!", self.device)
-            except:     # pylint: disable=bare-except
-                _LOGGER.error("Establish connection to %s failed!", self.device)
+            except Exception as err:     # pylint: disable=broad-except
+                _LOGGER.warning("Establish connection to %s failed, will retry: %s", self.device, err)
 
     def close(self) -> None:
         """Close connection"""
@@ -226,7 +232,7 @@ class BeckerCommunicator(threading.Thread):
             if callback_valid:
                 try:
                     data = self._connection.read()
-                except serial.SerialException as err:
+                except Exception as err:   # pylint: disable=broad-except
                     _LOGGER.warning(
                         "BeckerCommunicator read failed (%s). Will keep retrying without killing the thread.", err
                     )
@@ -244,7 +250,7 @@ class BeckerCommunicator(threading.Thread):
                 else:
                     try:
                         self._connection.write(packet)
-                    except (serial.SerialException, BeckerConnectionError) as err:
+                    except Exception as err:   # pylint: disable=broad-except
                         _LOGGER.warning(
                             "BeckerCommunicator failed to send packet (%s). Connection will be retried.", err
                         )
