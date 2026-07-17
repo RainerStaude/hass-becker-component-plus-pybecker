@@ -126,9 +126,7 @@ class BeckerConnection():
         try:
             self._connection.write(packet)
         except serial.SerialException:
-            if self._is_serial:
-                raise
-            # Re-connect on error
+            # Re-connect on error (also for serial devices, e.g. after unplug/replug)
             _LOGGER.debug("Write failed. Try to close and re-open connection to %s", self.device)
             self._connection.close()
             self._open()
@@ -141,9 +139,7 @@ class BeckerConnection():
         try:
             packet = self._connection.read(1024)
         except serial.SerialException:
-            if self._is_serial:
-                raise
-            # Re-connect on error
+            # Re-connect on error (also for serial devices, e.g. after unplug/replug)
             _LOGGER.debug("Read failed. Try to close and re-open connection to %s", self.device)
             self._connection.close()
         return packet
@@ -155,10 +151,11 @@ class BeckerConnection():
                 self._connection.open()
             except serial.SerialException as err:
                 if self.is_serial:
-                    raise BeckerConnectionError(
-                        "Error when trying to establish connection using {}.".format(self.device)
-                    ) from err
-                _LOGGER.error("Establish connection to %s failed!", self.device)
+                    _LOGGER.warning(
+                        "Establish connection to %s failed, will retry: %s", self.device, err
+                    )
+                else:
+                    _LOGGER.error("Establish connection to %s failed!", self.device)
             except:     # pylint: disable=bare-except
                 _LOGGER.error("Establish connection to %s failed!", self.device)
 
@@ -227,7 +224,13 @@ class BeckerCommunicator(threading.Thread):
         while True:
             # Read bytes from serial port
             if callback_valid:
-                data = self._connection.read()
+                try:
+                    data = self._connection.read()
+                except serial.SerialException as err:
+                    _LOGGER.warning(
+                        "BeckerCommunicator read failed (%s). Will keep retrying without killing the thread.", err
+                    )
+                    data = bytes()
                 if len(data) > 0:
                     self._timeout = time.time() + COMMUNICATION_TIMEOUT
                 self._read_buffer += data
@@ -239,9 +242,15 @@ class BeckerCommunicator(threading.Thread):
                 except queue.Empty:
                     pass
                 else:
-                    self._connection.write(packet)
-                    self._timeout = time.time() + COMMUNICATION_TIMEOUT
-                    self._log(packet, "Sent packet: ")
+                    try:
+                        self._connection.write(packet)
+                    except (serial.SerialException, BeckerConnectionError) as err:
+                        _LOGGER.warning(
+                            "BeckerCommunicator failed to send packet (%s). Connection will be retried.", err
+                        )
+                    else:
+                        self._timeout = time.time() + COMMUNICATION_TIMEOUT
+                        self._log(packet, "Sent packet: ")
 
             # Sleep for thread switch and wait time between packets
             time.sleep(0.1)
