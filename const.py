@@ -20,7 +20,7 @@ MANUFACTURER = "Becker"
 DEVICE = "device"
 DEVICE_CLASS = "shutter"
 
-PLATFORMS = [Platform.BUTTON, Platform.COVER]
+PLATFORMS = [Platform.BUTTON, Platform.COVER, Platform.EVENT]
 
 RECEIVE_MESSAGE = "receive_message"
 REMOTE_PACKET_EVENT = "remote_packet_received"
