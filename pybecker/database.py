@@ -111,6 +111,27 @@ class Database:
 
         return result
 
+    def export_units(self):
+        """Return every unit row as dicts (all rows, unfiltered)."""
+        c = self.conn.cursor()
+        res = c.execute(
+            "SELECT code, increment, configured FROM unit ORDER BY code ASC"
+        )
+        return [
+            {"code": row[0], "increment": int(row[1]), "configured": int(row[2])}
+            for row in res.fetchall()
+        ]
+
+    def import_units(self, rows):
+        """Update increment and configured for each row keyed by unit code."""
+        c = self.conn.cursor()
+        for row in rows:
+            c.execute(
+                "UPDATE unit SET increment = ?, configured = ? WHERE code = ?",
+                (int(row["increment"]), int(row["configured"]), row["code"]),
+            )
+        self.conn.commit()
+
     def get_rowid_from_unit(self, code, create=True):
         c = self.conn.cursor()
         res = c.execute('SELECT rowid FROM unit WHERE code = ?', (code,))
