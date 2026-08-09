@@ -3,7 +3,7 @@
   "name": "Becker",
   "codeowners": ["@nicolasberthel", "@RainerStaude"],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["http"],
   "documentation": "https://github.com/RainerStaude/hass-becker-component-plus-pybecker",
   "iot_class": "local_push",
   "requirements": ["pyserial==3.5"],

@@ -35,6 +35,13 @@ DEFAULT_DB_FILENAME = "centronic-stick.db"
 SUBENTRY_TYPE_COVER = "cover"
 CHANNEL_PATTERN = re.compile(r"^(?:[1-7]|[1-5]:[1-7])$")
 CONF_PAIR = "pair"
+CONF_UPLOAD = "upload"
+CONF_STATE_TEXT = "state_text"
+
+# Import/export
+DOWNLOAD_URL = "/api/becker/download/{entry_id}/{fmt}"
+DOWNLOAD_LINK_TTL_MINUTES = 10
+BACKUP_PREFIX = "becker_db_backup_"
 
 CONF_CHANNEL = "channel"
 CONF_COVERS = "covers"
