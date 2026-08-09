@@ -29,6 +29,7 @@ COPIED = [
     "const.py",
     "cover.py",
     "db_transfer.py",
+    "http.py",
     "travelcalculator.py",
     "manifest.json",
     "services.yaml",

@@ -26,6 +26,7 @@ from .const import (
     REMOTE_PACKET_EVENT,
     SUBENTRY_TYPE_COVER,
 )
+from .http import BeckerDownloadView
 from .pybecker.becker import Becker
 from .pybecker.becker_helper import BeckerConnectionError
 from .pybecker.database import FILE_PATH, SQL_DB_FILE
@@ -126,6 +127,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     hass.services.async_register(DOMAIN, "pair", handle_pair, PAIR_SCHEMA)
     hass.services.async_register(DOMAIN, "log_units", handle_log_units)
+    hass.http.register_view(BeckerDownloadView())
     return True
 
 
