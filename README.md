@@ -50,6 +50,29 @@ next restart. After the import, remove the `becker` cover platform from your
 `configuration.yaml` - a repair issue will remind you. YAML configuration is
 deprecated and will be removed in a future release.
 
+## Import / Export the shutter database
+
+The stick's rolling-code counters live in a SQLite database **on the Home
+Assistant host** (`centronic-stick.db` in your config folder), not on the USB
+stick itself — so swapping only the physical stick already keeps your pairings.
+Import/export is for moving that state between Home Assistant installs, taking
+backups, or repairing a desynced increment.
+
+Open **Settings → Devices & Services → Becker → Configure**:
+
+- **Export state (JSON)** — download a small, human-readable `becker_state.json`
+  (the increment counter and paired flag for each unit), or copy it from the box.
+- **Import state (JSON)** — upload a `becker_state.json`. The current state is
+  backed up to `becker_db_backup_<timestamp>.json` first, then applied.
+- **Export database file** — download an exact copy of `centronic-stick.db`.
+- **Import database file** — upload a `centronic-stick.db`. The current file is
+  backed up to `becker_db_backup_<timestamp>.db`, then swapped in and the
+  integration reloads.
+
+> Because Becker uses a rolling code, the imported increment must be at or ahead
+> of what each receiver last saw. Export right before moving, and don't keep
+> operating covers from the old install afterwards.
+
 ## Basic configuration (YAML, deprecated)
 ```yaml
 cover:
