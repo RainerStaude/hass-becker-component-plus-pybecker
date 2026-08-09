@@ -1,16 +1,19 @@
 """Config flow for the Becker integration."""
 
+from datetime import timedelta
 import logging
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
+    OptionsFlow,
     SubentryFlowResult,
 )
 from homeassistant.const import (
@@ -31,9 +34,13 @@ from homeassistant.helpers.selector import (
     SerialPortSelector,
     TemplateSelector,
     TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
+from homeassistant.util import dt as dt_util
 
 from .const import (
+    BACKUP_PREFIX,
     CHANNEL_PATTERN,
     CONF_CHANNEL,
     CONF_CONNECTION_TYPE,
@@ -44,17 +51,21 @@ from .const import (
     CONF_INTERMEDIATE_POSITION_UP,
     CONF_PAIR,
     CONF_REMOTE_ID,
+    CONF_STATE_TEXT,
     CONF_TILT_BLIND,
     CONF_TILT_INTERMEDIATE,
     CONF_TILT_TIME_BLIND,
     CONF_TRAVELLING_TIME_DOWN,
     CONF_TRAVELLING_TIME_UP,
+    CONF_UPLOAD,
     CONNECTION_TYPE_NETWORK,
     CONNECTION_TYPE_SERIAL,
     DEFAULT_DB_FILENAME,
     DEFAULT_DEVICE,
     DEFAULT_TCP_PORT,
     DOMAIN,
+    DOWNLOAD_LINK_TTL_MINUTES,
+    DOWNLOAD_URL,
     INTERMEDIATE_POSITION,
     REMOTE_ID,
     SUBENTRY_TYPE_COVER,
@@ -173,6 +184,12 @@ class BeckerConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> dict[str, type[ConfigSubentryFlow]]:
         """Return subentries supported by this integration."""
         return {SUBENTRY_TYPE_COVER: CoverSubentryFlowHandler}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Return the import/export options flow."""
+        return BeckerOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -426,4 +443,72 @@ class CoverSubentryFlowHandler(ConfigSubentryFlow):
             ),
             description_placeholders={CONF_CHANNEL: subentry.data[CONF_CHANNEL]},
             errors=errors,
+        )
+
+
+class BeckerOptionsFlow(OptionsFlow):
+    """Import and export the shutter database from the UI."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the import/export menu."""
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["export_json", "import_json", "export_db", "import_db"],
+        )
+
+    def _download_url(self, fmt: str) -> str:
+        """Build a short-lived signed download URL for the given format."""
+        path = DOWNLOAD_URL.format(entry_id=self.config_entry.entry_id, fmt=fmt)
+        return async_sign_path(
+            self.hass, path, timedelta(minutes=DOWNLOAD_LINK_TTL_MINUTES)
+        )
+
+    async def _db_path(self) -> str:
+        """Resolve the database file path for this entry."""
+        from . import _resolve_db_path
+
+        return await self.hass.async_add_executor_job(
+            _resolve_db_path,
+            self.hass.config.config_dir,
+            self.config_entry.data.get(CONF_FILENAME),
+        )
+
+    async def async_step_export_json(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer the JSON state as a download link and inline copy."""
+        if user_input is not None:
+            return self.async_abort(reason="export_done")
+
+        from .db_transfer import dump_state_json, read_units
+
+        db_path = await self._db_path()
+        units = await self.hass.async_add_executor_job(read_units, db_path)
+        inline = dump_state_json(units, dt_util.now().isoformat())
+        return self.async_show_form(
+            step_id="export_json",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_STATE_TEXT, default=inline): TextSelector(
+                        TextSelectorConfig(
+                            multiline=True, type=TextSelectorType.TEXT
+                        )
+                    )
+                }
+            ),
+            description_placeholders={"download_url": self._download_url("json")},
+        )
+
+    async def async_step_export_db(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Offer the raw .db file as a download link."""
+        if user_input is not None:
+            return self.async_abort(reason="export_done")
+        return self.async_show_form(
+            step_id="export_db",
+            data_schema=vol.Schema({}),
+            description_placeholders={"download_url": self._download_url("db")},
         )

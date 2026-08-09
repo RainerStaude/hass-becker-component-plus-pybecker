@@ -112,6 +112,53 @@
       }
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Import / export database",
+        "menu_options": {
+          "export_json": "Export state (JSON)",
+          "import_json": "Import state (JSON)",
+          "export_db": "Export database file",
+          "import_db": "Import database file"
+        }
+      },
+      "export_json": {
+        "title": "Export state (JSON)",
+        "description": "[Download becker_state.json]({download_url})\n\nOr copy the state below. This captures the increment counters and paired flags for all five units.",
+        "data": {
+          "state_text": "State JSON"
+        }
+      },
+      "export_db": {
+        "title": "Export database file",
+        "description": "[Download centronic-stick.db]({download_url})\n\nThis is an exact copy of the database file. Store it somewhere safe."
+      },
+      "import_json": {
+        "title": "Import state (JSON)",
+        "description": "Upload a previously exported becker_state.json. The current state is backed up first. This overwrites the increment counters — only import a file exported from this or another Becker install.",
+        "data": {
+          "upload": "State JSON file"
+        }
+      },
+      "import_db": {
+        "title": "Import database file",
+        "description": "Upload a previously exported centronic-stick.db. The current file is backed up first and the integration reloads. Only import a genuine Becker database file.",
+        "data": {
+          "upload": "Database file"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "That file is not valid JSON.",
+      "invalid_format": "That JSON is not a valid Becker state export.",
+      "invalid_db": "That file is not a valid Becker database."
+    },
+    "abort": {
+      "export_done": "Export ready.",
+      "import_done": "Import applied."
+    }
+  },
   "entity": {
     "button": {
       "pair": {
