@@ -1,12 +1,11 @@
 """The becker component."""
 
 import codecs
-from functools import partial
 import logging
 import os
+from functools import partial
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_DEVICE, CONF_FILENAME
 from homeassistant.core import HomeAssistant, ServiceCall

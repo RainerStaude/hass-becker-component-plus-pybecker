@@ -4,7 +4,6 @@ import re
 
 from homeassistant.const import STATE_CLOSED, STATE_OPEN, Platform
 
-from .pybecker.becker_helper import DEFAULT_DEVICE_NAME
 from .pybecker.becker import (
     COMMAND_DOWN,
     COMMAND_DOWN5,
@@ -13,6 +12,7 @@ from .pybecker.becker import (
     COMMAND_UP,
     COMMAND_UP5,
 )
+from .pybecker.becker_helper import DEFAULT_DEVICE_NAME
 
 DOMAIN = "becker"
 MANUFACTURER = "Becker"
