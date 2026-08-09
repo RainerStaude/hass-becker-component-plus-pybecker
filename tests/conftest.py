@@ -71,6 +71,17 @@ def auto_enable_custom_integrations(
 
 
 @pytest.fixture
+def hass_config_dir(hass_tmp_config_dir: str) -> str:
+    """Use a per-test config dir instead of the shared package one.
+
+    Without this, files written under hass.config.config_dir (e.g. the
+    import-flow backup files) land in pytest_homeassistant_custom_component's
+    static testing_config directory and leak across test runs.
+    """
+    return hass_tmp_config_dir
+
+
+@pytest.fixture
 def mock_setup_entry() -> Generator[AsyncMock]:
     """Prevent actual entry setup in config flow tests."""
     with patch(
@@ -96,6 +107,23 @@ def mock_becker() -> Generator[MagicMock]:
         becker.init_unconfigured_unit = AsyncMock()
         becker.pair = AsyncMock()
         yield becker
+
+
+@pytest.fixture
+def uploaded_file(tmp_path: Path) -> Path:
+    """Path the mocked upload resolves to; tests write content into it."""
+    return tmp_path / "upload.bin"
+
+
+@pytest.fixture
+def mock_process_uploaded_file(uploaded_file: Path) -> Generator[MagicMock]:
+    """Mock process_uploaded_file to yield the uploaded_file path."""
+    ctx = MagicMock()
+    ctx.__enter__.return_value = uploaded_file
+    with patch(
+        "custom_components.becker.config_flow.process_uploaded_file", return_value=ctx
+    ) as mock_upload:
+        yield mock_upload
 
 
 @pytest.fixture

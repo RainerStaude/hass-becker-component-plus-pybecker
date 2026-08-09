@@ -2,10 +2,12 @@
 
 from datetime import timedelta
 import logging
+import shutil
 from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -28,6 +30,8 @@ from homeassistant.core import DOMAIN as HOMEASSISTANT_DOMAIN, callback
 from homeassistant.helpers.issue_registry import IssueSeverity, async_create_issue
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    FileSelector,
+    FileSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -512,3 +516,106 @@ class BeckerOptionsFlow(OptionsFlow):
             data_schema=vol.Schema({}),
             description_placeholders={"download_url": self._download_url("db")},
         )
+
+    def _backup_path(self, suffix: str) -> str:
+        """Return a timestamped backup file path in the config directory."""
+        stamp = dt_util.now().strftime("%Y%m%d_%H%M%S")
+        return self.hass.config.path(f"{BACKUP_PREFIX}{stamp}{suffix}")
+
+    async def async_step_import_json(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Upload and apply a JSON state export."""
+        from .db_transfer import (
+            StateFormatError,
+            StateJSONError,
+            apply_units,
+            dump_state_json,
+            parse_state_json,
+            read_units,
+        )
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            with process_uploaded_file(self.hass, user_input[CONF_UPLOAD]) as path:
+                raw = await self.hass.async_add_executor_job(path.read_bytes)
+            try:
+                rows = parse_state_json(raw)
+            except StateJSONError:
+                errors["base"] = "invalid_json"
+            except StateFormatError:
+                errors["base"] = "invalid_format"
+            if not errors:
+                db_path = await self._db_path()
+                current = await self.hass.async_add_executor_job(read_units, db_path)
+                backup = self._backup_path(".json")
+                await self.hass.async_add_executor_job(
+                    _write_text, backup, dump_state_json(current, dt_util.now().isoformat())
+                )
+                await self.hass.async_add_executor_job(apply_units, db_path, rows)
+                return self.async_abort(reason="import_done")
+
+        return self.async_show_form(
+            step_id="import_json",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_UPLOAD): FileSelector(
+                        FileSelectorConfig(accept=".json,application/json")
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_import_db(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Upload and swap in a raw .db file."""
+        from pathlib import Path
+
+        from .db_transfer import consistent_copy, is_valid_becker_db
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            with process_uploaded_file(self.hass, user_input[CONF_UPLOAD]) as path:
+                valid = await self.hass.async_add_executor_job(
+                    is_valid_becker_db, path
+                )
+                if not valid:
+                    errors["base"] = "invalid_db"
+                else:
+                    db_path = await self._db_path()
+                    backup = self._backup_path(".db")
+                    await self.hass.async_add_executor_job(
+                        _swap_db, Path(db_path), path, Path(backup)
+                    )
+            if not errors:
+                self.hass.config_entries.async_schedule_reload(
+                    self.config_entry.entry_id
+                )
+                return self.async_abort(reason="import_done")
+
+        return self.async_show_form(
+            step_id="import_db",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_UPLOAD): FileSelector(
+                        FileSelectorConfig(accept=".db,application/octet-stream")
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+
+def _write_text(path: str, text: str) -> None:
+    """Write text to a file (blocking, run in executor)."""
+    with open(path, "w", encoding="utf-8") as file:
+        file.write(text)
+
+
+def _swap_db(db_path, uploaded, backup) -> None:
+    """Back up the current db, then copy the uploaded db over it."""
+    if db_path.exists():
+        shutil.copy2(db_path, backup)
+    shutil.copy2(uploaded, db_path)
