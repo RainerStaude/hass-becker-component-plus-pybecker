@@ -2,6 +2,8 @@
 
 from datetime import timedelta
 import logging
+import os
+from pathlib import Path
 import shutil
 from typing import Any
 
@@ -571,9 +573,7 @@ class BeckerOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Upload and swap in a raw .db file."""
-        from pathlib import Path
-
-        from .db_transfer import consistent_copy, is_valid_becker_db
+        from .db_transfer import is_valid_becker_db
 
         errors: dict[str, str] = {}
         if user_input is not None:
@@ -584,10 +584,10 @@ class BeckerOptionsFlow(OptionsFlow):
                 if not valid:
                     errors["base"] = "invalid_db"
                 else:
-                    db_path = await self._db_path()
-                    backup = self._backup_path(".db")
+                    db_path = Path(await self._db_path())
+                    backup = Path(self._backup_path(".db"))
                     await self.hass.async_add_executor_job(
-                        _swap_db, Path(db_path), path, Path(backup)
+                        _swap_db, db_path, path, backup
                     )
             if not errors:
                 self.hass.config_entries.async_schedule_reload(
@@ -614,8 +614,17 @@ def _write_text(path: str, text: str) -> None:
         file.write(text)
 
 
-def _swap_db(db_path, uploaded, backup) -> None:
-    """Back up the current db, then copy the uploaded db over it."""
+def _swap_db(db_path: Path, uploaded: Path, backup: Path) -> None:
+    """Back up the live db consistently, then atomically swap in the upload.
+
+    consistent_copy uses sqlite's backup API so the backup is a clean snapshot
+    even though the entry's Becker still holds an open connection; os.replace
+    swaps atomically so the live connection keeps its old inode until reload.
+    """
+    from .db_transfer import consistent_copy
+
     if db_path.exists():
-        shutil.copy2(db_path, backup)
-    shutil.copy2(uploaded, db_path)
+        consistent_copy(db_path, backup)
+    tmp = db_path.with_name(db_path.name + ".new")
+    shutil.copy2(uploaded, tmp)
+    os.replace(tmp, db_path)
