@@ -50,3 +50,64 @@ def test_parse_state_json_rejects_non_json() -> None:
 def test_parse_state_json_rejects_bad_structure(payload: dict) -> None:
     with pytest.raises(StateFormatError):
         parse_state_json(json.dumps(payload))
+
+
+from pathlib import Path
+
+from custom_components.becker.db_transfer import (
+    apply_units,
+    consistent_copy,
+    is_valid_becker_db,
+    read_units,
+)
+from custom_components.becker.pybecker.database import Database
+
+
+def _make_db(tmp_path: Path) -> str:
+    path = str(tmp_path / "centronic-stick.db")
+    Database(path).conn.close()
+    return path
+
+
+def test_read_units_reads_all_rows(tmp_path: Path) -> None:
+    path = _make_db(tmp_path)
+    rows = read_units(path)
+    assert len(rows) == 5
+    assert {r["code"] for r in rows} == set("1737b 1737c 1737d 1737e 1737f".split())
+
+
+def test_apply_units_persists_changes(tmp_path: Path) -> None:
+    path = _make_db(tmp_path)
+    apply_units(path, [{"code": "1737b", "increment": 99, "configured": 1}])
+    rows = {r["code"]: r for r in read_units(path)}
+    assert rows["1737b"] == {"code": "1737b", "increment": 99, "configured": 1}
+
+
+def test_is_valid_becker_db_true_for_real_db(tmp_path: Path) -> None:
+    assert is_valid_becker_db(Path(_make_db(tmp_path))) is True
+
+
+def test_is_valid_becker_db_false_for_garbage(tmp_path: Path) -> None:
+    junk = tmp_path / "junk.db"
+    junk.write_bytes(b"this is not a sqlite database")
+    assert is_valid_becker_db(junk) is False
+
+
+def test_is_valid_becker_db_false_for_wrong_schema(tmp_path: Path) -> None:
+    import sqlite3
+
+    other = tmp_path / "other.db"
+    con = sqlite3.connect(other)
+    con.execute("CREATE TABLE something (x INTEGER)")
+    con.commit()
+    con.close()
+    assert is_valid_becker_db(other) is False
+
+
+def test_consistent_copy_produces_valid_db(tmp_path: Path) -> None:
+    src = _make_db(tmp_path)
+    apply_units(src, [{"code": "1737b", "increment": 5, "configured": 1}])
+    dst = tmp_path / "copy.db"
+    consistent_copy(Path(src), dst)
+    assert is_valid_becker_db(dst) is True
+    assert {r["code"]: r for r in read_units(str(dst))}["1737b"]["increment"] == 5

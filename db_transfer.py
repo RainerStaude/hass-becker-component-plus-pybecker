@@ -4,6 +4,10 @@ Pure logic with no Home Assistant imports so it can be unit-tested directly.
 """
 
 import json
+import sqlite3
+from pathlib import Path
+
+from .pybecker.database import Database
 
 STATE_VERSION = 1
 KNOWN_UNIT_CODES = ("1737b", "1737c", "1737d", "1737e", "1737f")
@@ -58,3 +62,51 @@ def parse_state_json(raw: str | bytes) -> list[dict]:
             {"code": item["code"], "increment": increment, "configured": configured}
         )
     return rows
+
+
+def read_units(db_path: str) -> list[dict]:
+    """Open the database at db_path and return all unit rows."""
+    db = Database(db_path)
+    try:
+        return db.export_units()
+    finally:
+        db.conn.close()
+
+
+def apply_units(db_path: str, rows: list[dict]) -> None:
+    """Open the database at db_path and apply the given unit rows."""
+    db = Database(db_path)
+    try:
+        db.import_units(rows)
+    finally:
+        db.conn.close()
+
+
+def is_valid_becker_db(path: Path) -> bool:
+    """Return True if path is a SQLite database containing a 'unit' table."""
+    try:
+        con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return False
+    try:
+        cur = con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='unit'"
+        )
+        return cur.fetchone() is not None
+    except sqlite3.DatabaseError:
+        return False
+    finally:
+        con.close()
+
+
+def consistent_copy(src_path: Path, dst_path: Path) -> None:
+    """Write a transactionally consistent copy of the db via the backup API."""
+    src = sqlite3.connect(f"file:{src_path}?mode=ro", uri=True)
+    try:
+        dst = sqlite3.connect(dst_path)
+        try:
+            src.backup(dst)
+        finally:
+            dst.close()
+    finally:
+        src.close()
