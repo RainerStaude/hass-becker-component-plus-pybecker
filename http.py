@@ -51,9 +51,10 @@ class BeckerDownloadView(HomeAssistantView):
                 },
             )
 
-        tmp = await hass.async_add_executor_job(_copy_db, db_path)
-        return web.FileResponse(
-            tmp,
+        data = await hass.async_add_executor_job(_copy_db, db_path)
+        return web.Response(
+            body=data,
+            content_type="application/octet-stream",
             headers={
                 CONTENT_DISPOSITION: (
                     f'attachment; filename="centronic-stick_{stamp}.db"'
@@ -62,9 +63,12 @@ class BeckerDownloadView(HomeAssistantView):
         )
 
 
-def _copy_db(db_path: str) -> str:
-    """Write a consistent copy of the db to a temp file and return its path."""
+def _copy_db(db_path: str) -> bytes:
+    """Return a consistent copy of the db as bytes (no tempfile left behind)."""
     fd, tmp = tempfile.mkstemp(suffix=".db")
     os.close(fd)
-    consistent_copy(Path(db_path), Path(tmp))
-    return tmp
+    try:
+        consistent_copy(Path(db_path), Path(tmp))
+        return Path(tmp).read_bytes()
+    finally:
+        os.unlink(tmp)
