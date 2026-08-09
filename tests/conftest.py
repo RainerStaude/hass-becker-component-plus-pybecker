@@ -28,6 +28,7 @@ COPIED = [
     "config_flow.py",
     "const.py",
     "cover.py",
+    "db_transfer.py",
     "travelcalculator.py",
     "manifest.json",
     "services.yaml",
