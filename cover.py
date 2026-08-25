@@ -9,9 +9,11 @@ from homeassistant.components.cover import (
     ATTR_CURRENT_POSITION,
     ATTR_POSITION,
     PLATFORM_SCHEMA,
+    CoverDeviceClass,
     CoverEntity,
     CoverEntityFeature,
 )
+from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.const import (
     CONF_COVERS,
     CONF_DEVICE,
@@ -19,9 +21,9 @@ from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_VALUE_TEMPLATE,
 )
-from homeassistant.core import callback
 from homeassistant.exceptions import TemplateError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import (
     TrackTemplate,
     async_call_later,
@@ -29,7 +31,9 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.template import Template
 
+from . import signal_for_entry
 from .const import (
     CLOSED_POSITION,
     COMMANDS,
@@ -44,12 +48,13 @@ from .const import (
     CONF_TILT_TIME_BLIND,
     CONF_TRAVELLING_TIME_DOWN,
     CONF_TRAVELLING_TIME_UP,
-    DEVICE_CLASS,
     DOMAIN,
     INTERMEDIATE_POSITION,
+    MANUFACTURER,
     OPEN_POSITION,
-    RECEIVE_MESSAGE,
+    POSITION_UPDATE_INTERVAL,
     REMOTE_ID,
+    SUBENTRY_TYPE_COVER,
     TEMPLATE_UNKNOWN_STATES,
     TEMPLATE_VALID_CLOSE,
     TEMPLATE_VALID_OPEN,
@@ -58,7 +63,6 @@ from .const import (
     TILT_TIME,
     VENTILATION_POSITION,
 )
-from .rf_device import PyBecker
 from .travelcalculator import TravelCalculator
 
 _LOGGER = logging.getLogger(__name__)
@@ -93,93 +97,94 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Set up the becker platform."""
-    covers = []
-    device = config.get(CONF_DEVICE)
-    filename = config.get(CONF_FILENAME)
-    _LOGGER.debug("%s: %s; %s: %s", CONF_DEVICE, device, CONF_FILENAME, filename)
-    PyBecker.setup(hass, device=device, filename=filename)
+    """Import the YAML becker platform configuration into a config entry."""
+    hass.async_create_task(
+        hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_IMPORT}, data=config
+        )
+    )
 
-    for device, device_config in config[CONF_COVERS].items():
-        friendly_name = device_config.get(CONF_FRIENDLY_NAME, device)
-        channel = device_config.get(CONF_CHANNEL)
-        state_template = device_config.get(CONF_VALUE_TEMPLATE)
-        remote_id = device_config.get(CONF_REMOTE_ID)
-        travel_time_down = device_config.get(CONF_TRAVELLING_TIME_DOWN)
-        travel_time_up = device_config.get(CONF_TRAVELLING_TIME_UP)
-        # Warning if both template and travelling time are set
-        if (travel_time_down or travel_time_up) is not None and state_template is not None:
-            _LOGGER.warning('Both "%s" and "%s" are configured for cover %s. "%s" might influence with "%s"!',
-                CONF_VALUE_TEMPLATE,
-                CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
-                friendly_name,
-                CONF_VALUE_TEMPLATE,
-                CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
-            )
-        # intermediate settings
-        intermediate_disable = device_config.get(CONF_INTERMEDIATE_DISABLE)
-        if intermediate_disable is not None:
-            _LOGGER.error(
-                "%s is no longer supported for cover %s. Please remove from your configuration.yaml and replace by %s: %s",
-                CONF_INTERMEDIATE_DISABLE,
-                friendly_name,
-                CONF_TILT_INTERMEDIATE,
-                not intermediate_disable,
-            )
-        else:
-            intermediate_disable = False
-        intermediate_position = device_config.get(CONF_INTERMEDIATE_POSITION) and not intermediate_disable
-        intermediate_pos_up = device_config.get(CONF_INTERMEDIATE_POSITION_UP)
-        intermediate_pos_down = device_config.get(CONF_INTERMEDIATE_POSITION_DOWN)
-        # tilt settings
-        tilt_intermediate = device_config.get(CONF_TILT_INTERMEDIATE)
-        tilt_blind = device_config.get(CONF_TILT_BLIND)
-        if tilt_intermediate is None:
-            tilt_intermediate = intermediate_position and not tilt_blind
-        if tilt_intermediate and not intermediate_position:
-            _LOGGER.error(
-                '%s is enabled for cover %s, but %s is deactivated. Will deactivate %s.',
-                CONF_TILT_INTERMEDIATE,
-                friendly_name,
-                CONF_INTERMEDIATE_POSITION,
-                CONF_TILT_INTERMEDIATE,
-            )
-            tilt_intermediate = False
-        if tilt_intermediate and tilt_blind:
-            _LOGGER.error(
-                'Both, %s and %s are enabled for cover %s. Will use %s and deactivate %s.',
-                CONF_TILT_INTERMEDIATE,
-                CONF_TILT_BLIND,
-                friendly_name,
-                CONF_TILT_BLIND,
-                CONF_TILT_INTERMEDIATE,
-            )
-            tilt_intermediate = False
-        tilt_time_blind = device_config.get(CONF_TILT_TIME_BLIND)
 
-        if channel is None:
-            _LOGGER.error("Must specify %s", CONF_CHANNEL)
+async def async_setup_entry(hass, entry, async_add_entities):
+    """Set up the becker covers of a config entry."""
+    becker = entry.runtime_data
+    signal = signal_for_entry(entry.entry_id)
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_COVER:
             continue
-        # Initialize all missing units in the db file and send stop command for sync
-        await PyBecker.becker.init_unconfigured_unit(channel, name=friendly_name)
-
-        covers.append(
-            BeckerEntity(
-                PyBecker.becker, friendly_name, channel,
-                state_template, remote_id, travel_time_down, travel_time_up,
-                intermediate_pos_up, intermediate_pos_down, intermediate_position,
-                tilt_intermediate, tilt_blind, tilt_time_blind,
-            )
+        async_add_entities(
+            [_create_entity(hass, becker, entry.entry_id, signal, subentry.data)],
+            config_subentry_id=subentry_id,
         )
 
-    async_add_entities(covers)
+
+def _create_entity(hass, becker, entry_id, signal, config):
+    """Create a BeckerEntity from subentry data, normalizing the settings."""
+    channel = config[CONF_CHANNEL]
+    friendly_name = config.get(CONF_FRIENDLY_NAME) or f"Channel {channel}"
+    state_template = config.get(CONF_VALUE_TEMPLATE)
+    if state_template is not None:
+        state_template = Template(state_template, hass)
+    remote_id = config.get(CONF_REMOTE_ID)
+    travel_time_down = config.get(CONF_TRAVELLING_TIME_DOWN)
+    travel_time_up = config.get(CONF_TRAVELLING_TIME_UP)
+    # Warning if both template and travelling time are set
+    if (travel_time_down or travel_time_up) is not None and state_template is not None:
+        _LOGGER.warning('Both "%s" and "%s" are configured for cover %s. "%s" might influence with "%s"!',
+            CONF_VALUE_TEMPLATE,
+            CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
+            friendly_name,
+            CONF_VALUE_TEMPLATE,
+            CONF_TRAVELLING_TIME_UP.rpartition("_")[0],
+        )
+    # intermediate settings
+    intermediate_position = config.get(CONF_INTERMEDIATE_POSITION, True)
+    intermediate_pos_up = int(config.get(CONF_INTERMEDIATE_POSITION_UP, VENTILATION_POSITION))
+    intermediate_pos_down = int(config.get(CONF_INTERMEDIATE_POSITION_DOWN, INTERMEDIATE_POSITION))
+    # tilt settings
+    tilt_intermediate = config.get(CONF_TILT_INTERMEDIATE)
+    tilt_blind = config.get(CONF_TILT_BLIND, False)
+    if tilt_intermediate is None:
+        tilt_intermediate = intermediate_position and not tilt_blind
+    if tilt_intermediate and not intermediate_position:
+        _LOGGER.error(
+            '%s is enabled for cover %s, but %s is deactivated. Will deactivate %s.',
+            CONF_TILT_INTERMEDIATE,
+            friendly_name,
+            CONF_INTERMEDIATE_POSITION,
+            CONF_TILT_INTERMEDIATE,
+        )
+        tilt_intermediate = False
+    if tilt_intermediate and tilt_blind:
+        _LOGGER.error(
+            'Both, %s and %s are enabled for cover %s. Will use %s and deactivate %s.',
+            CONF_TILT_INTERMEDIATE,
+            CONF_TILT_BLIND,
+            friendly_name,
+            CONF_TILT_BLIND,
+            CONF_TILT_INTERMEDIATE,
+        )
+        tilt_intermediate = False
+    tilt_time_blind = config.get(CONF_TILT_TIME_BLIND, TILT_TIME)
+
+    return BeckerEntity(
+        becker, friendly_name, channel, entry_id, signal,
+        state_template, remote_id, travel_time_down, travel_time_up,
+        intermediate_pos_up, intermediate_pos_down, intermediate_position,
+        tilt_intermediate, tilt_blind, tilt_time_blind,
+    )
 
 
 class BeckerEntity(CoverEntity, RestoreEntity):
     """Representation of a Becker cover entity."""
 
+    _attr_has_entity_name = True
+    _attr_name = None
+    _attr_should_poll = False
+    _attr_device_class = CoverDeviceClass.SHUTTER
+
     def __init__(
-        self, becker, name, channel,
+        self, becker, name, channel, entry_id, signal,
         state_template, remote_id, travel_time_down, travel_time_up,
         intermediate_pos_up, intermediate_pos_down, intermediate_position,
         tilt_intermediate, tilt_blind, tilt_time_blind,
@@ -187,8 +192,16 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """Init the Becker entity."""
         self._becker = becker
         self._name = name
+        self._signal = signal
         self._attr = dict()
         self._channel = channel
+        self._attr_unique_id = channel
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry_id}_{channel}")},
+            name=name,
+            manufacturer=MANUFACTURER,
+            via_device=(DOMAIN, entry_id),
+        )
         self._attr[CONF_CHANNEL] = str(channel)
         self._cover_features = COVER_FEATURES
         # Template
@@ -229,13 +242,14 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         # Setup Remote IDs
         if remote_id is None:
             remote_id = ""
-        self._remode_ids = set()
+        self._remote_ids = set()
         for i in REMOTE_ID.finditer(remote_id):
             id1 = i['id'].upper() + i['ch'].upper() # Configured channel
             id2 = i['id'].upper() + 'F'             # ALL channels of Multi-Channel-Remote
-            self._remode_ids.update([id1.encode(), id2.encode()])
-        if len(self._remode_ids) > 0:
-            self._attr[CONF_REMOTE_ID] = b", ".join(self._remode_ids).decode()
+            self._remote_ids.update([id1.encode(), id2.encode()])
+        if len(self._remote_ids) > 0:
+            self._attr[CONF_REMOTE_ID] = b", ".join(self._remote_ids).decode()
+        self._attr_supported_features = self._cover_features
 
     async def async_added_to_hass(self):
         """Register callbacks."""
@@ -252,7 +266,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._tc.set_position(100 - CLOSED_POSITION)
         # Setup callback on received packets
         receive = async_dispatcher_connect(
-            self.hass, f"{DOMAIN}.{RECEIVE_MESSAGE}", self._async_message_received
+            self.hass, self._signal, self._async_message_received
         )
         self.async_on_remove(receive)
         # Setup callback on template changes
@@ -271,30 +285,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
             self._callbacks[callback]()
 
     @property
-    def name(self):
-        """Return the name of the device as reported by tellcore."""
-        return self._name
-
-    @property
-    def unique_id(self):
-        """Return the unique id of the device - the channel."""
-        return self._channel
-
-    @property
     def current_cover_position(self):
         """Return current position of cover. None is unknown, 0 is closed, 100 is fully open."""
         # In TravelCalculator 0 is open, 100 is closed.
         return 100 - self._tc.current_position()
-
-    @property
-    def device_class(self):
-        """Return the class of this device, from component DEVICE_CLASSES."""
-        return DEVICE_CLASS
-
-    @property
-    def supported_features(self):
-        """Flag supported features."""
-        return self._cover_features
 
     @property
     def is_closed(self):
@@ -322,14 +316,6 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """Return the device state attributes."""
         self._attr[ATTR_POSITION] = self.current_cover_position
         return self._attr
-
-    @property
-    def should_poll(self):
-        """Return if the cover should poll"""
-        # by default this is set to True, therefore all cover entities
-        # would be updated regulary. This disables the automatic update, but we
-        # have to notify hass whenever something changes.
-        return False
 
     async def async_open_cover(self, **kwargs):
         """Set the cover to the open position."""
@@ -391,7 +377,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 self.name, self.current_cover_position, position, travel_time,
             )
             self._tc.start_travel(100 - position)
-            self._update_scheduled_ha_state_callback(travel_time)
+            # Refresh the position periodically during travel instead of only
+            # once at the end, so the percentage updates live.
+            delay = POSITION_UPDATE_INTERVAL if travel_time > 0 else 0
+            self._update_scheduled_ha_state_callback(delay)
         return travel_time
 
     def _travel_stop(self):
@@ -411,7 +400,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
         """  # noqa: D205, D212
         # unsubscribe outdated pending callbacks
         self._callbacks.pop('update_ha', lambda: None)()
-        # Schedule callback to update ha-state at end of travel
+        # Update now and, while travelling, schedule the next refresh
         if delay is not None:
             # Update ha-state immediately
             _LOGGER.debug("%s update ha-state now", self._name)
@@ -446,11 +435,10 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                     self.hass, delay, self._async_stop_travel
                 )
 
-    @callback
     async def _async_message_received(self, packet):
         """Handle received packets."""
         ids = packet.group('unit_id') + packet.group('channel')
-        if ids in self._remode_ids:
+        if ids in self._remote_ids:
             _LOGGER.debug("%s received a packet from dispatcher", self._name)
             command = packet.group('command') + b'0'
             cmd_arg = packet.group('command') + packet.group('argument')
@@ -472,18 +460,21 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 self._travel_to_position(CLOSED_POSITION)
                 self._tilt_timeout = time.time() + TILT_RECEIVE_TIMEOUT
 
-    @callback
     async def _async_stop_travel(self, _):
         """Stop the cover callack."""
         self._travel_stop()
         await self._becker.stop(self._channel)
 
-    @callback
     async def _async_update_ha_state(self, _):
-        """Update HA-State while travelling."""
-        self._update_scheduled_ha_state_callback(0)
+        """Update HA-State while travelling.
 
-    @callback
+        Re-schedule another refresh while the cover is still moving so the
+        position keeps updating; the TravelCalculator reports the target
+        once the travel time has elapsed, which ends the loop.
+        """
+        delay = POSITION_UPDATE_INTERVAL if self._tc.is_traveling() else 0
+        self._update_scheduled_ha_state_callback(delay)
+
     async def _async_on_template_update(self, _, updates):
         """Update position on template update"""
         result = updates.pop().result
@@ -499,7 +490,7 @@ class BeckerEntity(CoverEntity, RestoreEntity):
                 result = result.lower()
             if result in TEMPLATE_VALID_OPEN:
                 pos = OPEN_POSITION
-            elif TEMPLATE_VALID_CLOSE:
+            elif result in TEMPLATE_VALID_CLOSE:
                 pos = CLOSED_POSITION
             elif isinstance(result, int) or isinstance(result, float):
                 # Clip position to a range of 0 - 100

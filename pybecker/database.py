@@ -18,7 +18,12 @@ class Database:
 
     def __init__(self, filename=None):
         self.filename = filename or os.path.join(FILE_PATH, SQL_DB_FILE)
-        self.conn = sqlite3.connect(self.filename)
+        # The connection is created in an executor thread (Home Assistant
+        # builds the Becker off the event loop) but every query afterwards
+        # runs on the event loop thread. Access is never concurrent - the
+        # communicator thread does not touch the database - so disabling the
+        # same-thread check is safe and avoids a ProgrammingError.
+        self.conn = sqlite3.connect(self.filename, check_same_thread=False)
         self.check()
 
     def __enter__(self):
@@ -105,6 +110,27 @@ class Database:
             result.append(list(row))
 
         return result
+
+    def export_units(self):
+        """Return every unit row as dicts (all rows, unfiltered)."""
+        c = self.conn.cursor()
+        res = c.execute(
+            "SELECT code, increment, configured FROM unit ORDER BY code ASC"
+        )
+        return [
+            {"code": row[0], "increment": int(row[1]), "configured": int(row[2])}
+            for row in res.fetchall()
+        ]
+
+    def import_units(self, rows):
+        """Update increment and configured for each row keyed by unit code."""
+        c = self.conn.cursor()
+        for row in rows:
+            c.execute(
+                "UPDATE unit SET increment = ?, configured = ? WHERE code = ?",
+                (int(row["increment"]), int(row["configured"]), row["code"]),
+            )
+        self.conn.commit()
 
     def get_rowid_from_unit(self, code, create=True):
         c = self.conn.cursor()

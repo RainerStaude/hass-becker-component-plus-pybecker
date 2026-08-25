@@ -2,7 +2,7 @@
 
 import re
 
-from homeassistant.const import STATE_CLOSED, STATE_OPEN
+from homeassistant.const import STATE_CLOSED, STATE_OPEN, Platform
 
 from .pybecker.becker import (
     COMMAND_DOWN,
@@ -12,6 +12,7 @@ from .pybecker.becker import (
     COMMAND_UP,
     COMMAND_UP5,
 )
+from .pybecker.becker_helper import DEFAULT_DEVICE_NAME
 
 DOMAIN = "becker"
 MANUFACTURER = "Becker"
@@ -19,8 +20,28 @@ MANUFACTURER = "Becker"
 DEVICE = "device"
 DEVICE_CLASS = "shutter"
 
+PLATFORMS = [Platform.BUTTON, Platform.COVER, Platform.EVENT]
+
 RECEIVE_MESSAGE = "receive_message"
 REMOTE_PACKET_EVENT = "remote_packet_received"
+
+# Config flow
+CONF_CONNECTION_TYPE = "connection_type"
+CONNECTION_TYPE_SERIAL = "serial"
+CONNECTION_TYPE_NETWORK = "network"
+DEFAULT_DEVICE = DEFAULT_DEVICE_NAME
+DEFAULT_TCP_PORT = 5000
+DEFAULT_DB_FILENAME = "centronic-stick.db"
+SUBENTRY_TYPE_COVER = "cover"
+CHANNEL_PATTERN = re.compile(r"^(?:[1-7]|[1-5]:[1-7])$")
+CONF_PAIR = "pair"
+CONF_UPLOAD = "upload"
+CONF_STATE_TEXT = "state_text"
+
+# Import/export
+DOWNLOAD_URL = "/api/becker/download/{entry_id}/{fmt}"
+DOWNLOAD_LINK_TTL_MINUTES = 10
+BACKUP_PREFIX = "becker_db_backup_"
 
 CONF_CHANNEL = "channel"
 CONF_COVERS = "covers"
@@ -44,6 +65,9 @@ INTERMEDIATE_POSITION = 75
 OPEN_POSITION = 100
 TILT_TIME = 0.3
 TILT_RECEIVE_TIMEOUT = 1.0
+
+# Interval (seconds) for refreshing the reported position while travelling
+POSITION_UPDATE_INTERVAL = 1
 
 COMMANDS = {
     'halt': f'{COMMAND_HALT:02x}'.encode(),

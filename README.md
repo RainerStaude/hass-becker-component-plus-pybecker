@@ -30,7 +30,63 @@ There are three ways to track position of the cover:
 4. Reboot Home Assistant
 
 # Configuration
-## Basic configuration
+## Configuration via the UI (recommended)
+Since version 0.4.0 the integration is set up in the Home Assistant UI:
+
+1. Go to **Settings** → **Devices & services** → **Add integration** and search for **Becker**.
+2. Choose the connection type:
+   - **Serial port (USB stick)**: select the serial port of the Centronic USB stick.
+   - **Network (serial-to-TCP bridge)**: enter host and port of your bridge (for example ser2net, default port 5000).
+3. Add your covers to the created entry with **Add cover**. Each cover can be
+   reconfigured later (name, travel times, tilt, remote IDs, position template)
+   without removing it.
+4. While adding a cover you can pair it straight away: put the shutter receiver
+   into learn mode, then leave **Send pairing signal now** enabled. You can also
+   pair (or re-pair) any time later with the **Pair** button on the cover's
+   device page - no need for the `becker.pair` service.
+
+An existing YAML configuration (see below) is imported automatically on the
+next restart. After the import, remove the `becker` cover platform from your
+`configuration.yaml` - a repair issue will remind you. YAML configuration is
+deprecated and will be removed in a future release.
+
+## Remote presses as events
+
+The integration exposes a **Remote** event entity per stick (on the Centronic
+stick device). Every RF packet the stick receives from a physical Becker remote
+fires an event on it: the button is the event type (`up`, `down`, `halt`,
+`release`, the two intermediate variants, or `unknown`), and the sending
+remote's `unit_id` and `channel` are event attributes.
+
+Use it as an automation trigger — trigger on the entity and filter by
+`unit_id`/`channel` to react to a specific wall remote — or just watch it to see
+which remotes the stick is hearing (handy for discovering a remote's id). It
+works for any remote in range, including ones not configured as covers.
+
+## Import / Export the shutter database
+
+The stick's rolling-code counters live in a SQLite database **on the Home
+Assistant host** (`centronic-stick.db` in your config folder), not on the USB
+stick itself — so swapping only the physical stick already keeps your pairings.
+Import/export is for moving that state between Home Assistant installs, taking
+backups, or repairing a desynced increment.
+
+Open **Settings → Devices & Services → Becker → Configure**:
+
+- **Export state (JSON)** — download a small, human-readable `becker_state.json`
+  (the increment counter and paired flag for each unit), or copy it from the box.
+- **Import state (JSON)** — upload a `becker_state.json`. The current state is
+  backed up to `becker_db_backup_<timestamp>.json` first, then applied.
+- **Export database file** — download an exact copy of `centronic-stick.db`.
+- **Import database file** — upload a `centronic-stick.db`. The current file is
+  backed up to `becker_db_backup_<timestamp>.db`, then swapped in and the
+  integration reloads.
+
+> Because Becker uses a rolling code, the imported increment must be at or ahead
+> of what each receiver last saw. Export right before moving, and don't keep
+> operating covers from the old install afterwards.
+
+## Basic configuration (YAML, deprecated)
 ```yaml
 cover:
   - platform: becker

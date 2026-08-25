@@ -1,0 +1,187 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Becker Centronic stick",
+        "description": "Select how Home Assistant connects to your Centronic USB stick.",
+        "menu_options": {
+          "serial": "Serial port (USB stick)",
+          "network": "Network (serial-to-TCP bridge)"
+        }
+      },
+      "serial": {
+        "title": "Serial connection",
+        "data": {
+          "device": "Serial port",
+          "filename": "Database file"
+        },
+        "data_description": {
+          "device": "Path to the Centronic USB stick.",
+          "filename": "SQLite file storing the stick's pairing data. Keep the default unless you migrate an existing file."
+        }
+      },
+      "network": {
+        "title": "Network connection",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "filename": "Database file"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the serial-to-TCP bridge (for example ser2net).",
+          "port": "TCP port of the bridge.",
+          "filename": "SQLite file storing the stick's pairing data. Keep the default unless you migrate an existing file."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Becker Centronic stick."
+    },
+    "abort": {
+      "already_configured": "This Becker Centronic stick is already configured."
+    }
+  },
+  "config_subentries": {
+    "cover": {
+      "entry_type": "Cover",
+      "initiate_flow": {
+        "user": "Add cover"
+      },
+      "step": {
+        "user": {
+          "title": "Add Becker cover",
+          "data": {
+            "channel": "Channel",
+            "friendly_name": "Name",
+            "value_template": "Position template",
+            "remote_id": "Remote ID(s)",
+            "travelling_time_down": "Travel time down",
+            "travelling_time_up": "Travel time up",
+            "intermediate_position": "Enable intermediate positions",
+            "intermediate_position_up": "Intermediate position up",
+            "intermediate_position_down": "Intermediate position down",
+            "tilt_intermediate": "Tilt moves to intermediate position",
+            "tilt_blind": "Tilt as venetian blind",
+            "tilt_time_blind": "Blind tilt time"
+          },
+          "data_description": {
+            "channel": "Channel the cover is paired to: 1-7, or unit:channel (for example 2:1) when using a sender unit other than 1.",
+            "value_template": "Optional template that reports the cover position from another entity.",
+            "remote_id": "Optional hand-held remote IDs to follow, formatted as ID:channel (for example 12345:2). Separate multiple remotes with commas.",
+            "travelling_time_down": "Seconds the cover needs to travel from open to closed. Enables position control.",
+            "travelling_time_up": "Seconds the cover needs to travel from closed to open. Enables position control."
+          }
+        },
+        "reconfigure": {
+          "title": "Reconfigure cover on channel {channel}",
+          "data": {
+            "friendly_name": "Name",
+            "value_template": "Position template",
+            "remote_id": "Remote ID(s)",
+            "travelling_time_down": "Travel time down",
+            "travelling_time_up": "Travel time up",
+            "intermediate_position": "Enable intermediate positions",
+            "intermediate_position_up": "Intermediate position up",
+            "intermediate_position_down": "Intermediate position down",
+            "tilt_intermediate": "Tilt moves to intermediate position",
+            "tilt_blind": "Tilt as venetian blind",
+            "tilt_time_blind": "Blind tilt time"
+          },
+          "data_description": {
+            "value_template": "Optional template that reports the cover position from another entity.",
+            "remote_id": "Optional hand-held remote IDs to follow, formatted as ID:channel (for example 12345:2). Separate multiple remotes with commas.",
+            "travelling_time_down": "Seconds the cover needs to travel from open to closed. Enables position control.",
+            "travelling_time_up": "Seconds the cover needs to travel from closed to open. Enables position control."
+          }
+        },
+        "pair": {
+          "title": "Pair the cover",
+          "description": "Put the receiver for channel {channel} into learn mode (consult its manual – often a button on the motor or a master remote), then submit to send the pairing signal. You can also skip this and pair later with the cover's Pair button.",
+          "data": {
+            "pair": "Send pairing signal now"
+          }
+        }
+      },
+      "error": {
+        "invalid_channel": "Channel must be 1-7 or unit:channel (for example 2:1).",
+        "invalid_remote_id": "Remote ID must be formatted as ID:channel (for example 12345:2).",
+        "already_configured": "A cover with this channel is already configured."
+      },
+      "abort": {
+        "reconfigure_successful": "Cover updated."
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Import / export database",
+        "menu_options": {
+          "export_json": "Export state (JSON)",
+          "import_json": "Import state (JSON)",
+          "export_db": "Export database file",
+          "import_db": "Import database file"
+        }
+      },
+      "export_json": {
+        "title": "Export state (JSON)",
+        "description": "[Download becker_state.json]({download_url})\n\nOr copy the state below. This captures the increment counters and paired flags for all five units.",
+        "data": {
+          "state_text": "State JSON"
+        }
+      },
+      "export_db": {
+        "title": "Export database file",
+        "description": "[Download centronic-stick.db]({download_url})\n\nThis is an exact copy of the database file. Store it somewhere safe."
+      },
+      "import_json": {
+        "title": "Import state (JSON)",
+        "description": "Upload a previously exported becker_state.json. The current state is backed up first. This overwrites the increment counters — only import a file exported from this or another Becker install.",
+        "data": {
+          "upload": "State JSON file"
+        }
+      },
+      "import_db": {
+        "title": "Import database file",
+        "description": "Upload a previously exported centronic-stick.db. The current file is backed up first and the integration reloads. Only import a genuine Becker database file.",
+        "data": {
+          "upload": "Database file"
+        }
+      }
+    },
+    "error": {
+      "invalid_json": "That file is not valid JSON.",
+      "invalid_format": "That JSON is not a valid Becker state export.",
+      "invalid_db": "That file is not a valid Becker database."
+    },
+    "abort": {
+      "export_done": "Export ready.",
+      "import_done": "Import applied."
+    }
+  },
+  "entity": {
+    "button": {
+      "pair": {
+        "name": "Pair"
+      }
+    },
+    "event": {
+      "remote": {
+        "name": "Remote",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "up": "Up",
+              "up_intermediate": "Up (intermediate)",
+              "down": "Down",
+              "down_intermediate": "Down (intermediate)",
+              "halt": "Stop",
+              "release": "Release",
+              "unknown": "Unknown"
+            }
+          }
+        }
+      }
+    }
+  }
+}
