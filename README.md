@@ -50,6 +50,19 @@ next restart. After the import, remove the `becker` cover platform from your
 `configuration.yaml` - a repair issue will remind you. YAML configuration is
 deprecated and will be removed in a future release.
 
+## Remote presses as events
+
+The integration exposes a **Remote** event entity per stick (on the Centronic
+stick device). Every RF packet the stick receives from a physical Becker remote
+fires an event on it: the button is the event type (`up`, `down`, `halt`,
+`release`, the two intermediate variants, or `unknown`), and the sending
+remote's `unit_id` and `channel` are event attributes.
+
+Use it as an automation trigger — trigger on the entity and filter by
+`unit_id`/`channel` to react to a specific wall remote — or just watch it to see
+which remotes the stick is hearing (handy for discovering a remote's id). It
+works for any remote in range, including ones not configured as covers.
+
 ## Import / Export the shutter database
 
 The stick's rolling-code counters live in a SQLite database **on the Home

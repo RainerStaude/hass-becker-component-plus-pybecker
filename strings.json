@@ -164,6 +164,24 @@
       "pair": {
         "name": "Pair"
       }
+    },
+    "event": {
+      "remote": {
+        "name": "Remote",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "up": "Up",
+              "up_intermediate": "Up (intermediate)",
+              "down": "Down",
+              "down_intermediate": "Down (intermediate)",
+              "halt": "Stop",
+              "release": "Release",
+              "unknown": "Unknown"
+            }
+          }
+        }
+      }
     }
   }
 }
