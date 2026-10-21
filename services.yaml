@@ -9,5 +9,23 @@ pair:
     unit:
       description: "Sender unit to use for pairing (1-5)"
       example: 1
+pair_timed:
+  description: "Pair like a real remote: press (0x80), hold for `hold` seconds, 3-second frame (0x81), release, then a short second press. Use after the master remote's program button was held until the receiver acknowledged."
+  fields:
+    channel:
+      description: "Channel to pair the receiver on (1-7)"
+      example: 3
+    unit:
+      description: "Sender unit to use for pairing (1-5)"
+      example: 1
+    hold:
+      description: "Seconds between the press frame and the 3-second frame (default 3)"
+      example: 3
+    stages:
+      description: "How many hold stages to send: 1 = press only, 2 = press + 3 s (default), 3 = + 6 s, 4 = + 10 s"
+      example: 2
+    sender_type:
+      description: "Sender-type byte in the frame: 01 (stick default), 02 (hand remote), 00"
+      example: "02"
 log_units:
   description: "Log all configured/paired units"
