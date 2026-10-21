@@ -30,6 +30,15 @@ PAIR_SCHEMA = vol.Schema(
 )
 
 
+PAIR_TIMED_SCHEMA = PAIR_SCHEMA.extend(
+    {
+        vol.Optional("hold", default=3.0): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=12)),
+        vol.Optional("stages", default=2): vol.All(int, vol.Range(min=1, max=4)),
+        vol.Optional("sender_type"): vol.In(["00", "01", "02"]),
+    }
+)
+
+
 class PyBecker:
     """Manages a (single, global) pybecker Becker instance."""
 
@@ -73,6 +82,7 @@ class PyBecker:
         """Register component services."""
 
         hass.services.async_register(DOMAIN, "pair", cls.handle_pair, PAIR_SCHEMA)
+        hass.services.async_register(DOMAIN, "pair_timed", cls.handle_pair_timed, PAIR_TIMED_SCHEMA)
         hass.services.async_register(DOMAIN, "log_units", cls.handle_log_units)
 
     @classmethod
@@ -82,6 +92,17 @@ class PyBecker:
         channel = call.data.get(CONF_CHANNEL)
         unit = call.data.get(CONF_UNIT, 1)
         await cls.becker.pair(f"{unit}:{channel}")
+
+    @classmethod
+    async def handle_pair_timed(cls, call):
+        """Service to pair with realistic button-hold timing."""
+
+        channel = call.data.get(CONF_CHANNEL)
+        unit = call.data.get(CONF_UNIT, 1)
+        hold = call.data.get("hold", 3.0)
+        stages = call.data.get("stages", 2)
+        sender_type = call.data.get("sender_type")
+        await cls.becker.pair_timed(f"{unit}:{channel}", hold=hold, stages=stages, sender_type=sender_type)
 
     @classmethod
     async def handle_log_units(cls, call):
