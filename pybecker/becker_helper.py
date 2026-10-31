@@ -66,17 +66,19 @@ def checksum(code):
     return '%s%s' % (code.upper(), hex2(0x03 - code_sum))
 
 
-def generate_code(channel, unit, cmd_code, with_checksum=True):
+def generate_code(channel, unit, cmd_code, with_checksum=True, remote_type=None):
     """Generate code"""
     unit_id = unit[0]  # contains the unit code in hex (5 chars)
     unit_inc = unit[1]  # contains the next increment (required to convert into hex4)
+    if remote_type is None:
+        remote_type = CODE_REMOTE
 
     if channel == 0:
         # channel 0 may be used for wall mounted sender (primary used as master sender)
         code = CODE_PREFIX + hex4(unit_inc) + CODE_SUFFIX + unit_id + CODE_21 + "00" + hex2(channel) + '00' + hex2(
             cmd_code)
     else:
-        code = CODE_PREFIX + hex4(unit_inc) + CODE_SUFFIX + unit_id + CODE_21 + CODE_REMOTE + hex2(channel) + '00' \
+        code = CODE_PREFIX + hex4(unit_inc) + CODE_SUFFIX + unit_id + CODE_21 + remote_type + hex2(channel) + '00' \
                + hex2(cmd_code)
     return checksum(code) if with_checksum else code
 

@@ -257,6 +257,42 @@ class Becker:
         """
         await self.send(channel, "TRAIN")
 
+    async def pair_timed(self, channel, hold=3.0, stages=2, sender_type=None, test=False):
+        """
+            Pair like a real remote whose program button is held: send the
+            press frame (0x80), wait `hold` seconds, send the 3-second frame (0x81),
+            release, then a short second press (0x80 + release).
+            Captured EC545-II: 0x80 at t=0, 0x81 at t=+3.0 s, release when done.
+
+            :param channel: the channel on which the shutter is listening
+            :type channel: str
+        """
+        un, ch = self._split_channel(channel)
+        if not 1 <= ch <= 7 and ch != 15:
+            _LOGGER.error("Channel must be in range of 1-7 or 15")
+            return
+        unit = self.db.get_unit(un)
+
+        async def _one(cmd, delay):
+            self.communicator.send(finalize_code(generate_code(ch, unit, cmd, remote_type=sender_type)))
+            unit[1] += 1
+            self.db.set_unit(unit, test)
+            await asyncio.sleep(delay)
+
+        _LOGGER.info("Timed pairing on %s:%s hold=%.1f s stages=%d sender_type=%s", un, ch, hold, stages, sender_type)
+        await _one(COMMAND_PAIR, hold)        # press, held ...
+        if stages >= 2:
+            await _one(COMMAND_PAIR2, 3.0 if stages >= 3 else 1.0)   # 3 s reached
+        if stages >= 3:
+            await _one(COMMAND_PAIR3, 3.0 if stages >= 4 else 1.0)   # 6 s reached
+        if stages >= 4:
+            await _one(COMMAND_PAIR4, 1.0)    # 9-10 s reached
+        await _one(COMMAND_RELEASE, 1.5)      # release
+        await _one(COMMAND_PAIR, 0.5)         # second short press
+        await _one(COMMAND_RELEASE, 0.0)      # release
+        unit[2] = 1
+        self.db.set_unit(unit, test)
+
     async def list_units(self):
         """
         Return all configured units as a list.
