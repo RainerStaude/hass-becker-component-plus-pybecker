@@ -36,7 +36,7 @@ class PyBecker:
     becker = None
 
     @classmethod
-    def setup(cls, hass, device=None, filename=None):
+    def setup(cls, hass, device=None, filename=None, queue_size=100, retry_max=3, retry_delay=1.0):
         """Initiate becker instance."""
         # Validate filename
         if filename is None:
@@ -63,10 +63,22 @@ class PyBecker:
                 # create a new file
                 _LOGGER.warning("Filename %s does not exist. Create a new file.", filename)
         _LOGGER.debug("Use filename: %s", filename)
+        _LOGGER.info(
+            "Initializing Becker with queue_size=%d, retry_max=%d, retry_delay=%.1fs",
+            queue_size, retry_max, retry_delay
+        )
         # Setup callback function
         callback = lambda packet: cls.callback(hass, packet)
         # Setup Becker
-        cls.becker = Becker(device_name=device, init_dummy=False, db_filename=filename, callback=callback)
+        cls.becker = Becker(
+            device_name=device,
+            init_dummy=False,
+            db_filename=filename,
+            callback=callback,
+            queue_size=queue_size,
+            retry_max=retry_max,
+            retry_delay=retry_delay
+        )
 
     @classmethod
     async def async_register_services(cls, hass):
